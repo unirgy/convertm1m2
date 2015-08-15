@@ -8,8 +8,8 @@ their existing Magento 1.x extensions to Magento 2.0.
 We can't wait until the last minute, because while we don't know how much it will take us to convert, we do know it will 
 take long time.
 
-The purpose of this script is to automate as much as possible initial conversion of Magento 1 extension, and allow 
-developers to have more time for tasks that can not possibly be automated, such as:
+The purpose of this script is to automate as much as possible the initial conversion of a Magento 1 extension, and allow 
+developers to have more time for tasks that can not be automated, such as:
   
   * Templates conversion to new M2 themes
   * JS/CSS conversion to jQuery and new M2 themes
@@ -47,9 +47,9 @@ developers to have more time for tasks that can not possibly be automated, such 
     
 ### Partial list of known unknowns:
 
-  * In Magento 1.x it's possible to have separate templates for different themes. If module contains templates for 
-  multiple themes, which one to use?
-  * In Magento 1.x there are email templates for multiple locales. How is it handled in Magento 2?
+  * In Magento 1.x it's possible to have separate templates for different themes. If a module contains templates for 
+  multiple themes, which one should be used?
+  * In Magento 1.x there are email templates for multiple locales. How this handled in Magento 2?
 
 
 ## Installation and Usage
@@ -106,15 +106,13 @@ An example of file and folders structure:
 
 ## Disclaimers
 
-This is by no means a complete or even a good solution. 
+Our conversion tool is a work in progress and may not necessarily be the best solution for converting your existing extension.
 
-Some developers opt to start development from scratch and this might be a better choice. 
+Some developers may opt to start development from scratch and this might be a better choice. 
 
-For those who opt to use this script - there are no guarantees made about any correctness or completeness of the result. 
+For those who do opt to use this script - there are no guarantees made about any correctness or completeness of the result. 
 
 The purpose of this script is only to reduce some repetitive work which can be automated.
-
-This is work in progress.
 
 ## Contributing
 
