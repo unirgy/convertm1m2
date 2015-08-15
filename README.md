@@ -40,7 +40,7 @@ developers to have more time for tasks that can not possibly be automated, such 
 
   * **Controllers**
   * **Migration Setup** (not sure if possible to automate at all)
-  * **Advanced PHP code conversion*
+  * **Advanced PHP code conversion**
     * `use` classes
     * Collect used classes and create `__construct` with DI
     * Full list of known class name, ACL keys and menu keys conversions
