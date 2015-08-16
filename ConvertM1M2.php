@@ -62,9 +62,15 @@ class ConvertM1M2
         '@Magento/' => '../../../Magento/',
     ];
 
-    protected $_translate = [
+    protected $_replace = [
         'classes' => [
             '#Mage_Core_Helper_Abstract#' => 'Magento_Framework_App_Helper_AbstractHelper',
+            '#Mage_Core_Model_Abstract#' => 'Magento_Framework_Model_AbstractModel',
+            '#Mage_Core_Model_Mysql4_Abstract#' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+            '#Mage_Core_Block_Abstract#' => 'Magento_Framework_View_Element_AbstractBlock',
+            '#Mage_Core_Block_Template#' => 'Magento_Framework_View_Element_Template',
+            '#Varien_Object#' => 'Magento_Framework_DataObject',
+            '#Varien_Io_#' => 'Magento_Framework_Filesystem_Io_',
             '#Varien_#' => 'Magento_Framework_',
             '#Mage_Core_#' => 'Magento_Framework_',
             '#Mage_Page_#' => 'Magento_Framework_',
@@ -74,6 +80,8 @@ class ConvertM1M2
         ],
         'code' => [
             '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
+            '#Mage_Core_Model_Locale::DEFAULT_LOCALE#' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
+            '#Mage_Core_Model_Translate::CACHE_TAG#' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
         ],
         'acl_keys' => [
             'admin' => 'Magento_Backend::admin',
@@ -391,7 +399,7 @@ class ConvertM1M2
         $className = $this->_aliases[$type][$moduleKey] . '_' . $classKeyCapped;
 
         if ($m2) {
-            $classTr = $this->_translate['classes'];
+            $classTr = $this->_replace['classes'];
             $className = preg_replace(array_keys($classTr), array_values($classTr), $className);
             $className = str_replace('_', '\\', $className);
         }
@@ -510,8 +518,8 @@ class ConvertM1M2
     {
         foreach ($sourceXml->children() as $key => $sourceNode) {
             $attr = [];
-            if (!empty($this->_translate['acl_keys'][$path . $key])) {
-                $attr['id'] = $this->_translate['acl_keys'][$path . $key];
+            if (!empty($this->_replace['acl_keys'][$path . $key])) {
+                $attr['id'] = $this->_replace['acl_keys'][$path . $key];
             } else {
                 $attr['id'] = $this->_env['ext_name'] . ':' . $key;
             }
@@ -633,13 +641,12 @@ class ConvertM1M2
                     $targetEventNode = $resultXml->addChild('event');
                     $targetEventNode->addAttribute('name', $eventName);
                     foreach ($eventNode->observers->children() as $obsName => $obsNode) {
-                        if (empty($obsNode->type) || $obsNode->type == 'singleton') {
-                            $targetObsNode = $targetEventNode->addChild('observer');
-                            $targetObsNode->addAttribute('name', $obsName);
-                            $targetObsNode->addAttribute('instance', $this->_getClassName('models', (string)$obsNode->class));
-                            $targetObsNode->addAttribute('method', (string)$obsNode->method);
-                        } else {
-                            $this->log('ERROR: Unknown event observer type: ' . $obsNode->asXml());
+                        $targetObsNode = $targetEventNode->addChild('observer');
+                        $targetObsNode->addAttribute('name', $obsName);
+                        $targetObsNode->addAttribute('instance', $this->_getClassName('models', (string)$obsNode->class));
+                        $targetObsNode->addAttribute('method', (string)$obsNode->method);
+                        if ($obsNode->type == 'model') {
+                            $targetObsNode->addAttribute('shared', 'false');
                         }
                     }
                 }
@@ -686,7 +693,7 @@ class ConvertM1M2
         $targetXml = $resultXml->addChild('menu');
 
         $xml1 = $this->_readFile("@EXT/etc/config.xml");
-        if (!empty($xml1->adminhtml->acl)) {
+        if (!empty($xml1->adminhtml->menu)) {
             $this->_convertConfigMenuRecursive($xml1->adminhtml->menu, $targetXml);
         }
 
@@ -705,8 +712,8 @@ class ConvertM1M2
     protected function _convertConfigMenuRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $parent = null)
     {
         foreach ($sourceXml->children() as $key => $srcNode) {
-            if (!empty($this->_translate['menu'][$key])) {
-                $attr['id'] = $this->_translate['menu'][$key];
+            if (!empty($this->_replace['menu'][$key])) {
+                $attr['id'] = $this->_replace['menu'][$key];
             } else {
                 $attr['id'] = $this->_env['ext_name'] . '::' . $key;
             }
@@ -1226,42 +1233,6 @@ class ConvertM1M2
         }
     }
 
-    protected function _convertCodeContents($contents, $mode = 'phtml')
-    {
-        $codeTr = $this->_translate['code'];
-
-        $contents = preg_replace(array_keys($codeTr), array_values($codeTr), $contents);
-
-        $re = '#(Mage::getModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
-        $contents = preg_replace_callback($re, function($m) use ($mode) {
-            $class = $this->_getClassName(strpos($m[1], 'helper') !== false ? 'helpers' : 'models', $m[2]);
-            switch ($mode) {
-                default:
-                    $result = '\Magento\Framework\App\ObjectManager::getInstance()->get(\'' . $class . '\')';
-            }
-            return $result;
-        }, $contents);
-
-        if ($mode === 'php') {
-            $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"][,\)])#', function ($m) {
-                return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
-            }, $contents);
-        }
-
-        $classTr = $this->_translate['classes'];
-        $contents = preg_replace(array_keys($classTr), array_values($classTr), $contents);
-
-        $contents = preg_replace_callback('#([A-Z][A-Za-z0-9][a-z0-9]+_[A-Za-z0-9_]+)#', function($m) use ($mode) {
-            return '\\' . str_replace('_', '\\', $m[0]);
-        }, $contents);
-
-        $from = '#^class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)(\s+)extends\s#m';
-        $to = "namespace \$1;\n\nclass \$2\$3extends ";
-        $contents = preg_replace($from, $to, $contents);
-
-        return $contents;
-    }
-
     ///////////////////////////////////////////////////////////
 
     protected function _convertAllI18n()
@@ -1328,6 +1299,66 @@ class ConvertM1M2
             $targetFile = str_replace('/Model/Mysql4/', '/Model/Resource/', $targetFile);
             $this->_writeFile($targetFile, $contents);
         }
+    }
+
+    protected function _convertCodeContents($contents, $mode = 'phtml')
+    {
+        $objInstStr = '\Magento\Framework\App\ObjectManager::getInstance()->get';
+
+        // Replace code snippets
+        $codeTr = $this->_replace['code'];
+        $contents = preg_replace(array_keys($codeTr), array_values($codeTr), $contents);
+
+        if ($mode === 'php') {
+            // Replace $this->_init() in models and resources with class names and table names
+            $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"][,\)])#', function ($m) {
+                if ($m[3] === ')') {
+                    return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
+                } else {
+                    return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
+                }
+            }, $contents);
+
+            // Most of these were found on http://mage2.ru - Thank you!
+            $replace = [
+                'Mage::log(' => "{$objInstStr}('Psr\\Log\\LoggerInterface')->debug(",
+                'Mage::dispatchEvent(' =>  "{$objInstStr}('Magento\\Framework\\Event\\ManagerInterface')->dispatch(",
+                'Mage::app()->getRequest()->isXmlHttpRequest()' => "{$objInstStr}('Magento\\Framework\\App\\RequestInterface')->isXmlHttpRequest()",
+                'Mage::app()->getLocale()->getLocaleCode()' => "{$objInstStr}('Magento\\Framework\\Locale\\Resolver')->getLocale()",
+                'Mage::getConfig()->getModuleDir(' => "{$objInstStr}('Magento\\Framework\\Module\\Dir\\Reader')->getModuleDir(",
+                'Mage::app()->getStore(' => "{$objInstStr}('Magento\\Store\\Model\\StoreManagerInterface')->getStore(",
+                'Mage::app()->getCacheInstance()->canUse(' => "{$objInstStr}('Magento\\Framework\\App\\Cache\\StateInterface')->isEnabled(",
+                'Mage::app()->getCacheInstance()' => "{$objInstStr}('Magento\\Framework\\App\\CacheInterface')",
+                'Mage::getStoreConfig(' => "{$objInstStr}('Magento\\Framework\\App\\Config\\ScopeConfigInterface')->getValue(",
+                'Mage::getStoreConfigFlag(' => "{$objInstStr}('Magento\\Framework\\App\\Config\\ScopeConfigInterface')->isSetFlag(",
+                "Mage::helper('core/url')->getCurrentUrl()" => "{$objInstStr}('Magento\\Framework\\UrlInterface')->getCurrentUrl()",
+            ];
+            $contents = str_replace(array_keys($replace), array_values($replace), $contents);
+        }
+
+        // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
+        $re = '#(Mage::getModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
+        $contents = preg_replace_callback($re, function($m) use ($objInstStr) {
+            $class = $this->_getClassName(strpos($m[1], 'helper') !== false ? 'helpers' : 'models', $m[2], false);
+            $result = "{$objInstStr}('{$class}')";
+            return $result;
+        }, $contents);
+
+        // Replace M1 classes with M2 classes
+        $classTr = $this->_replace['classes'];
+        $contents = preg_replace(array_keys($classTr), array_values($classTr), $contents);
+
+        // Convert any left underscored class names to backslashed. If class name is in string value, don't prefix
+        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9][a-z0-9]+_[A-Za-z0-9_]+)#', function($m) {
+            return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]);
+        }, $contents);
+
+        // Add namespace to class declarations
+        $from = '#^class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)(\s+)extends\s#m';
+        $to = "namespace \$1;\n\nclass \$2\$3extends ";
+        $contents = preg_replace($from, $to, $contents);
+
+        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
