@@ -29,6 +29,7 @@ developers to have more time for tasks that can not be automated, such as:
   * **i18n** (copying only)
   * **Templates** (with some conversion - see below)
   * **Classes** (with some conversion - see below)
+  * **Controllers**
   * **PHP Code conversions**
     * Class names to backslashed
     * Class declarations to use namespaces
@@ -38,7 +39,6 @@ developers to have more time for tasks that can not be automated, such as:
 
 ### To be implemented:
 
-  * **Controllers**
   * **Migration Setup** (not sure if possible to automate at all)
   * **Advanced PHP code conversion**
     * `use` classes
