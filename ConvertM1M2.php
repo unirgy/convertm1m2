@@ -46,6 +46,7 @@ die;
 
 class ConvertM1M2
 {
+    
     protected $_env = [];
 
     protected $_fileCache = [];
@@ -62,6 +63,9 @@ class ConvertM1M2
         '@Magento/' => '../../../Magento/',
     ];
 
+    const OBJ_MGR = '\Magento\Framework\App\ObjectManager::getInstance()->get';
+
+    // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
     protected $_replace = [
         'classes' => [
             'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
@@ -72,6 +76,7 @@ class ConvertM1M2
             'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
             'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
             'Mage_Adminhtml_' => 'Magento_Backend_',
+            'Mage_Admin_' => 'Magento_Backend_',
             'Mage_Core_' => 'Magento_Framework_',
             'Mage_Page_' => 'Magento_Framework_',
             'Mage_' => 'Magento_',
@@ -86,9 +91,27 @@ class ConvertM1M2
         'code' => [
             'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
             'Mage_Core_Model_Translate::CACHE_TAG' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
+            
+            'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->log(',
+            'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
+            'Mage::dispatchEvent(' =>  self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
+            'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
+            'Mage::app()->getLocale()->getLocaleCode()' => self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->getLocale()',
+            'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
+            'Mage::app()->getCacheInstance()->canUse(' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\StateInterface\')->isEnabled(',
+            'Mage::app()->getCacheInstance()' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')',
+            'Mage::getConfig()->getModuleDir(' => self::OBJ_MGR . '(\'Magento\Framework\Module\Dir\Reader\')->getModuleDir(',
+            'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
+            'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
+            'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
+            "Mage::helper('core/url')->getCurrentUrl()" => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
+            "Mage::getBaseUrl(" => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
+            "Mage::getBaseDir(" => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
+            "Mage::getSingleton('admin/session')->isAllowed(" => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
         ],
         'code_regex' => [
             '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
+            "#Mage::(registry|register|unregister)\(#" => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
         ],
         'acl_keys' => [
             'admin' => 'Magento_Backend::admin',
@@ -1313,8 +1336,6 @@ class ConvertM1M2
 
     protected function _convertCodeContents($contents, $mode = 'php')
     {
-        $objInst = '\Magento\Framework\App\ObjectManager::getInstance()->get';
-
         // Replace code snippets
         $codeTr = $this->_replace['code'];
         $contents = str_replace(array_keys($codeTr), array_values($codeTr), $contents);
@@ -1330,39 +1351,13 @@ class ConvertM1M2
                     return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
                 }
             }, $contents);
-
-            // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
-            $replace = [
-                'Mage::log(' => "{$objInst}('Psr\\Log\\LoggerInterface')->log(",
-                'Mage::logException(' => "{$objInst}('Psr\\Log\\LoggerInterface')->error(",
-                'Mage::dispatchEvent(' =>  "{$objInst}('Magento\\Framework\\Event\\ManagerInterface')->dispatch(",
-                'Mage::app()->getRequest()->isXmlHttpRequest()' => "{$objInst}('Magento\\Framework\\App\\RequestInterface')->isXmlHttpRequest()",
-                'Mage::app()->getLocale()->getLocaleCode()' => "{$objInst}('Magento\\Framework\\Locale\\Resolver')->getLocale()",
-                'Mage::app()->getStore(' => "{$objInst}('Magento\\Store\\Model\\StoreManagerInterface')->getStore(",
-                'Mage::app()->getCacheInstance()->canUse(' => "{$objInst}('Magento\\Framework\\App\\Cache\\StateInterface')->isEnabled(",
-                'Mage::app()->getCacheInstance()' => "{$objInst}('Magento\\Framework\\App\\CacheInterface')",
-                'Mage::getConfig()->getModuleDir(' => "{$objInst}('Magento\\Framework\\Module\\Dir\\Reader')->getModuleDir(",
-                'Mage::getStoreConfig(' => "{$objInst}('Magento\\Framework\\App\\Config\\ScopeConfigInterface')->getValue(",
-                'Mage::getStoreConfigFlag(' => "{$objInst}('Magento\\Framework\\App\\Config\\ScopeConfigInterface')->isSetFlag(",
-                "Mage::getDesign()" => "{$objInst}('Magento\\Framework\\View\\DesignInterface')",
-                "Mage::helper('core/url')->getCurrentUrl()" => "{$objInst}('Magento\\Framework\\UrlInterface')->getCurrentUrl()",
-                "Mage::getBaseUrl(" => "{$objInst}('Magento\\Framework\\UrlInterface')->getBaseUrl(",
-                "Mage::getBaseDir(" => "{$objInst}('Magento\\Framework\\Filesystem')->getDirPath(",
-                "Mage::getSingleton('admin/session')->isAllowed(" => "{$objInst}('Magento\\Backend\\Model\\Auth\\Session')->isAllowed(",
-            ];
-            $contents = str_replace(array_keys($replace), array_values($replace), $contents);
-
-            $replaceRegex = [
-                "#Mage::(registry|register|unregister)\(#" => "{$objInst}('Magento\\Framework\\Registry')->\\1(",
-            ];
-            $contents = preg_replace(array_keys($replaceRegex), array_values($replaceRegex), $contents);
         }
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
         $re = '#(Mage::getModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
-        $contents = preg_replace_callback($re, function($m) use ($objInst) {
+        $contents = preg_replace_callback($re, function($m) {
             $class = $this->_getClassName(strpos($m[1], 'helper') !== false ? 'helpers' : 'models', $m[2], false);
-            $result = "{$objInst}('{$class}')";
+            $result = self::OBJ_MGR . "('{$class}')";
             return $result;
         }, $contents);
 
@@ -1496,7 +1491,6 @@ class ConvertM1M2
         }
         unset($method);
 
-        $offset = 0;
         for ($i = sizeof($methods) - 1; $i >= 0; $i--) {
             $method =& $methods[$i];
             if ($method['is_action']) {
