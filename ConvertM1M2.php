@@ -1402,7 +1402,7 @@ class ConvertM1M2
 
     protected function _convertController($file, $sourceDir, $targetDir)
     {
-        $targetFile = "{$targetDir}/{$file}";
+        $targetFile = preg_replace('#Controller\.php$#', '.php', "{$targetDir}/{$file}");
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
         $fileClass = preg_replace('#Controller$#', '', $fileClass);
