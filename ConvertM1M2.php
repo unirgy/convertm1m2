@@ -1257,11 +1257,13 @@ class ConvertM1M2
     {
         $area = 'frontend'; //TODO: any way to know from M1?
         $dir = "{$this->_env['ext_root_dir']}/app/locale/en_US/template/email";
-        $files = $this->_findFilesRecursive($dir);
         $outputDir = $this->_expandOutputPath("view/{$area}/email");
+        #$this->_copyRecursive($dir, $outputDir);
+        $files = $this->_findFilesRecursive($dir);
         foreach ($files as $filename) {
-            $contents = $this->_readFile("{$dir}/{$filename}");
-            $this->_writeFile("{$outputDir}/{$filename}", $contents);
+            $this->_copyFile("{$dir}/{$filename}", "{$outputDir}/{$filename}");
+            #$contents = $this->_readFile("{$dir}/{$filename}");
+            #$this->_writeFile("{$outputDir}/{$filename}", $contents);
         }
     }
 
@@ -1276,8 +1278,9 @@ class ConvertM1M2
             if (!preg_match('#([a-z][a-z]_[A-Z][A-Z])[\\\\/].*(\.csv)#', $file, $m)) {
                 continue;
             }
-            $contents = $this->_readFile($file);
-            $this->_writeFile("{$outputDir}/{$m[1]}{$m[2]}", $contents);
+            $this->_copyFile($file, "{$outputDir}/{$m[1]}{$m[2]}");
+            #$contents = $this->_readFile($file);
+            #$this->_writeFile("{$outputDir}/{$m[1]}{$m[2]}", $contents);
         }
     }
 
