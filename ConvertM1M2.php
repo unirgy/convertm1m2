@@ -174,7 +174,12 @@ class ConvertM1M2
         $this->log("EXTENSION: {$extName}");
 
         $this->_env['ext_name'] = $extName;
-        $this->_env['ext_pool'] = 'community'; //TODO: automate
+        $folders = glob($this->_env['mage1_dir'] . '/app/code/*/' . str_replace('_', '/', $extName));
+        if ($folders && preg_match('#app/code/(core|community|local)/#', $folders[0], $m)) {
+            $this->_env['ext_pool'] = $m[1];
+        } else {
+            $this->_env['ext_pool'] = 'community';
+        }
         $this->_env['ext_root_dir'] = $rootDir . '/' . $extName;
         #$this->_env['ext_output_dir'] = $rootDir . '/output/' . $extName;
         $this->_env['ext_output_dir'] = $this->_env['output_dir'] . '/' . str_replace('_', '/', $extName);
