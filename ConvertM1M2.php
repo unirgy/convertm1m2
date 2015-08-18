@@ -37,11 +37,11 @@ if (PHP_SAPI === 'cli') {
     echo "<pre>";
 }
 
-
+$time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 $converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
 $converter->convertAllExtensions();
-$converter->log('ALL DONE')->log('');
+$converter->log('ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
 
 class ConvertM1M2
@@ -88,6 +88,7 @@ class ConvertM1M2
         ],
         'classes_regex' => [
             '#_([A-Za-z0-9]+)_Abstract([^A-Z])#' => '_\1_Abstract\1\2',
+            '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
         ],
         'code' => [
             'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -105,10 +106,10 @@ class ConvertM1M2
             'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
             'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
             'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
-            "Mage::helper('core/url')->getCurrentUrl()" => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
+            'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
             'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
             'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
-            "Mage::getSingleton('admin/session')->isAllowed(" => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
+            'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
         ],
         'code_regex' => [
             '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
@@ -1392,8 +1393,8 @@ class ConvertM1M2
         }, $contents);
 
         // Add namespace to class declarations
-        $from = '#^class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)extends\s|\s*$)?#ms';
-        $to = "namespace \$1;\n\nclass \$2\$3";
+        $from = '#^(final\s+)?(abstract\s+)?class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)(extends|implements)\s|\s*$)?#ms';
+        $to = "namespace \$3;\n\n\$1\$2class \$4\$5";
         $contents = preg_replace($from, $to, $contents);
 
         return $contents;
