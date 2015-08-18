@@ -84,6 +84,7 @@ class ConvertM1M2
             'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
             'Varien_' => 'Magento_Framework_',
             '_Mysql4_' => '_Resource_',
+            'Zend_Json' => 'Zend_Json_Json',
         ],
         'classes_regex' => [
             '#_([A-Za-z0-9]+)_Abstract([^A-Z])#' => '_\1_Abstract\1\2',
@@ -91,7 +92,7 @@ class ConvertM1M2
         'code' => [
             'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
             'Mage_Core_Model_Translate::CACHE_TAG' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
-            
+
             'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->log(',
             'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
             'Mage::dispatchEvent(' =>  self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
@@ -105,13 +106,13 @@ class ConvertM1M2
             'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
             'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
             "Mage::helper('core/url')->getCurrentUrl()" => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
-            "Mage::getBaseUrl(" => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
-            "Mage::getBaseDir(" => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
+            'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
+            'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
             "Mage::getSingleton('admin/session')->isAllowed(" => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
         ],
         'code_regex' => [
             '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
-            "#Mage::(registry|register|unregister)\(#" => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
+            '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
         ],
         'acl_keys' => [
             'admin' => 'Magento_Backend::admin',
@@ -405,7 +406,7 @@ class ConvertM1M2
 
     protected function _getClassName($type, $moduleClassKey, $m2 = true)
     {
-        $mk = explode('/', $moduleClassKey, 2);
+        $mk = explode('/', strtolower($moduleClassKey), 2);
         if (empty($mk[1])) {
             if ($type === 'helpers') {
                 $mk[1] = 'data';
@@ -896,8 +897,10 @@ class ConvertM1M2
                 $targetNode->addAttribute('label', (string)$tplNode->label);
                 $targetNode->addAttribute('file', (string)$tplNode->file);
                 $targetNode->addAttribute('type', (string)$tplNode->type);
-                $targetNode->addAttribute('module', $this->_aliases['modules'][(string)$tplNode['module']]);
                 $targetNode->addAttribute('area', !empty($tplNode['area']) ? $tplNode['area'] : 'frontend');
+                if (!empty($tplNode['module'])) {
+                    $targetNode->addAttribute('module', $this->_aliases['modules'][(string)$tplNode['module']]);
+                }
             }
 
             $this->_writeFile('etc/email_templates.xml', $resultXml, true);
@@ -1417,6 +1420,8 @@ class ConvertM1M2
             return;
         }
 
+        $this->log('CONTROLLER: ' . $origClass);
+
         $nl = preg_match('#\r\n#', $contents) ? "\r\n" : "\n";
         $actions = $this->_convertControllerFindActions($contents, $nl);
 
@@ -1472,10 +1477,16 @@ class ConvertM1M2
 
         // Find phpdocs and ends of rest of the methods
         for ($i = sizeof($methods) - 1; $i >= 0; $i--) {
-            $prevMethodStart = $i > 0 ? $methods[$i - 1]['code_start'] : $classStart;
             $method =& $methods[$i];
-
-            for ($j = $method['start'] - 1; $j > $prevMethodStart; $j--) {
+            if (empty($method['end'])) {
+                for ($j = $methods[$i + 1]['start'] - 1; $j > $method['start']; $j--) {
+                    if (preg_match('#^\s*\}\s*$#', $lines[$j])) {
+                        $method['end'] = $j;
+                        break;
+                    }
+                }
+            }
+            for ($j = $method['start'] - 1; $j > $method['end']; $j--) {
                 if (empty($method['phpdoc_end'])) {
                     if (preg_match('#^\s*\*+/\s*$#', $lines[$j])) {
                         $method['phpdoc_end'] = $j;
@@ -1484,14 +1495,6 @@ class ConvertM1M2
                     if (preg_match('#^\s*/\*+\s*$#', $lines[$j])) {
                         $method['phpdoc_start'] = $j;
                         $method['start'] = $j;
-                        break;
-                    }
-                }
-            }
-            if (empty($method['end'])) {
-                for ($j = $methods[$i + 1]['start'] - 1; $j > $method['start']; $j--) {
-                    if (preg_match('#^\s*\}\s*$#', $lines[$j])) {
-                        $method['end'] = $j;
                         break;
                     }
                 }
