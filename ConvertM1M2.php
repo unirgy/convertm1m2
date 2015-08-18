@@ -1314,14 +1314,22 @@ class ConvertM1M2
             if ('etc' === $basename || 'controllers' === $basename || 'sql' === $basename) {
                 continue;
             }
+            $fileExt = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            $targetFile = "{$targetDir}/{$basename}";
             if (is_dir($file)) {
                 if ($basename[0] >= 'A' && $basename[0] <= 'Z') {
                     $this->_convertPhpClasses($basename);
                 } else {
-                    $this->_copyRecursive($file, "{$targetDir}/{$basename}");
+                    $this->_copyRecursive($file, $targetFile);
                 }
             } else {
-                copy($file, "{$targetDir}/{$basename}");
+                if ('php' === $fileExt) {
+                    $contents = $this->_readFile($file);
+                    $contents = $this->_convertCodeContents($contents);
+                    $this->_writeFile($targetFile, $contents);
+                } else {
+                    copy($file, $targetFile);
+                }
             }
         }
     }
@@ -1384,8 +1392,8 @@ class ConvertM1M2
         }, $contents);
 
         // Add namespace to class declarations
-        $from = '#^class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)(\s+)extends\s#ms';
-        $to = "namespace \$1;\n\nclass \$2\$3extends ";
+        $from = '#^class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)extends\s|\s*$)?#ms';
+        $to = "namespace \$1;\n\nclass \$2\$3";
         $contents = preg_replace($from, $to, $contents);
 
         return $contents;
