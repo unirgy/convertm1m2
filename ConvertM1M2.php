@@ -160,7 +160,6 @@ class ConvertM1M2
             "{$this->_env['mage1_dir']}/app/code/core",
             "{$this->_env['mage1_dir']}/app/code/community",
             "{$this->_env['mage1_dir']}/app/code/local",
-            "../magento_ee/app/code/core", //TODO: REMOVE
         ];
         $m2Pools = [
             "{$this->_env['output_dir']}/../../lib/internal",
@@ -216,7 +215,6 @@ class ConvertM1M2
                     #$this->_convertExtensionStage3($m[2]);
                     break;
             }
-            exit;
         }
 
         return $this;
