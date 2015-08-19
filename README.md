@@ -35,14 +35,13 @@ developers to have more time for tasks that can not be automated, such as:
     * Class declarations to use namespaces
     * Basic class name conversion to new locations in M2
     * String translations to use only `__()`
-    * Use ObjectManager instead of Mage::getSingleton() etc.
+    * Use constructor Dependency Injection
 
 ### To be implemented:
 
   * **Migration Setup** (not sure if possible to automate at all)
   * **Advanced PHP code conversion**
     * `use` classes
-    * Collect used classes and create/update `__construct` with DI
     * Full list of known class name, ACL keys and menu keys conversions
     
 ### Partial list of known unknowns:
@@ -103,6 +102,15 @@ An example of file and folders structure:
     |       +-[] Module2/
 
 
+## Steps after automatic conversion
+
+  * Run stage 2 to check that classes can be loaded by php without errors
+  * Fix any parent or interface classes as these could have been changed
+  * Fix any constructors or other methods arguments as they might have been changed
+  * Go over all the output files and try to understand what they mean and how they map to respective functionality in M1 code.
+  * Manually convert CSS, JS and templates to support M2 themes.
+  * Test your extensions.
+  * Learn more about M2 and use the knowledge to improve your code and gain experience.
 
 ## Disclaimers
 

@@ -30,17 +30,22 @@ if (PHP_SAPI === 'cli') {
     $sourceDir = !empty($_GET['s']) ? $_GET['s'] : "{$cwd}/source";
     $mage1Dir = !empty($_GET['m']) ? $_GET['m'] : "{$cwd}/../magento";
     $outputDir = !empty($_GET['o']) ? $_GET['o'] : "{$cwd}/../magento2/app/code";
+    $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
 } else {
     $sourceDir = 'source';
     $mage1Dir = '../magento';
     $outputDir = '../magento2/app/code';
+    $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
     echo "<pre>";
 }
+
+ini_set('display_errors', 1);
+error_reporting(E_ALL | E_STRICT);
 
 $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 $converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
-$converter->convertAllExtensions();
+$converter->convertAllExtensions($stage);
 $converter->log('ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
 
@@ -75,20 +80,22 @@ class ConvertM1M2
             'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
             'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
             'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
+            'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
             'Mage_Adminhtml_' => 'Magento_Backend_',
             'Mage_Admin_' => 'Magento_Backend_',
             'Mage_Core_' => 'Magento_Framework_',
             'Mage_Page_' => 'Magento_Framework_',
             'Mage_' => 'Magento_',
-            'Varien_Object' => 'Magento_Framework_DataObject',
             'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
             'Varien_' => 'Magento_Framework_',
             '_Mysql4_' => '_Resource_',
             'Zend_Json' => 'Zend_Json_Json',
+            'Zend_Log' => 'Zend_Logger',
         ],
         'classes_regex' => [
-            '#_([A-Za-z0-9]+)_Abstract([^A-Z])#' => '_\1_Abstract\1\2',
+            '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
             '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
+            '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
         ],
         'code' => [
             'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -110,6 +117,7 @@ class ConvertM1M2
             'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
             'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
             'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
+            ' extends Exception' => ' extends \Exception',
         ],
         'code_regex' => [
             '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
@@ -128,6 +136,10 @@ class ConvertM1M2
         ],
     ];
 
+    protected $_currentFile;
+
+    protected $_autoloadMode = 'm1';
+
     public function __construct($rootDir, $mageDir, $outputDir)
     {
         $this->_env['source_dir'] = str_replace('\\', '/', $rootDir);
@@ -136,8 +148,6 @@ class ConvertM1M2
 
         spl_autoload_register([$this, 'autoloadCallback']);
 
-        $this->_collectCoreModulesConfigs();
-        $this->_collectCoreModulesLayouts();
     }
 
     public function autoloadCallback($class)
@@ -145,9 +155,32 @@ class ConvertM1M2
         if (!empty($this->_classFileCache[$class])) {
             return;
         }
-        foreach (['lib', 'app/code/core', 'app/code/community', 'app/code/local'] as $pool) {
+        $m1Pools = [
+            "{$this->_env['mage1_dir']}/lib",
+            "{$this->_env['mage1_dir']}/app/code/core",
+            "{$this->_env['mage1_dir']}/app/code/community",
+            "{$this->_env['mage1_dir']}/app/code/local",
+            "../magento_ee/app/code/core", //TODO: REMOVE
+        ];
+        $m2Pools = [
+            "{$this->_env['output_dir']}/../../lib/internal",
+            "{$this->_env['output_dir']}",
+        ];
+        switch ($this->_autoloadMode) {
+            case 'm1':
+                $pools = $m1Pools;
+                break;
+
+            case 'm2':
+                $pools = $m2Pools;#array_merge($m2Pools, $m1Pools);
+                break;
+
+            default:
+                $pools = [];
+        }
+        foreach ($pools as $pool) {
             $classFile = str_replace(['_', '\\'], ['/', '/'], $class);
-            $filename = "{$this->_env['mage1_dir']}/{$pool}/{$classFile}.php";
+            $filename = "{$pool}/{$classFile}.php";
             if (file_exists($filename)) {
                 include_once $filename;
                 $this->_classFileCache[$class] = $filename;
@@ -156,8 +189,13 @@ class ConvertM1M2
         }
     }
 
-    public function convertAllExtensions()
+    public function convertAllExtensions($stage)
     {
+        if ($stage === 1) {
+            $this->_collectCoreModulesConfigs();
+            $this->_collectCoreModulesLayouts();
+        }
+
         $this->log('')->log("LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
 
         $extDirs = glob($this->_env['source_dir'] . '/*', GLOB_ONLYDIR);
@@ -165,14 +203,29 @@ class ConvertM1M2
             if (!preg_match('#^(.*)/([A-Za-z0-9]+_[A-Za-z0-9]+)$#', $extDir, $m)) {
                 continue;
             }
-            $this->convertExtension($m[2], $m[1]);
+            switch ($stage) {
+                case 1:
+                    $this->_convertExtensionStage1($m[2], $m[1]);
+                    break;
+
+                case 2:
+                    $this->_convertExtensionStage2($m[2]);
+                    break;
+
+                case 3:
+                    #$this->_convertExtensionStage3($m[2]);
+                    break;
+            }
+            exit;
         }
 
         return $this;
     }
 
-    public function convertExtension($extName, $rootDir)
+    protected function _convertExtensionStage1($extName, $rootDir)
     {
+        $this->_autoloadMode = 'm1';
+
         $this->log("EXTENSION: {$extName}");
 
         $this->_env['ext_name'] = $extName;
@@ -211,7 +264,14 @@ class ConvertM1M2
             echo "\n";
         }
         if (!empty($msg)) {
+            $error = preg_match('#^ERROR:#', $msg);
+            if ('cli' !== PHP_SAPI && $error) {
+                echo '<span style="color:red">';
+            }
             echo date("Y-m-d H:i:s") . ' ' . $msg;
+            if ('cli' !== PHP_SAPI && $error) {
+                echo '</span>';
+            }
         }
 
         return $this;
@@ -237,6 +297,8 @@ class ConvertM1M2
 
     protected function _readFile($filename, $expand = false)
     {
+        $this->_currentFile = [];
+
         if ($expand) {
             $filename = $this->_expandSourcePath($filename);
         }
@@ -375,7 +437,7 @@ class ConvertM1M2
                 if (!empty($xml->global->{$type})) {
                     foreach ($xml->global->{$type}->children() as $key => $node) {
                         if (!empty($node->class)) {
-                            $this->_aliases[$type][$key] = $node->class;
+                            $this->_aliases[$type][$key] = (string)$node->class;
                             if ('models' === $type) {
                                 $this->_aliases['modules'][$key] = str_replace('_Model', '', $node->class);
                             }
@@ -480,16 +542,16 @@ class ConvertM1M2
 
     protected function _convertConfigModule()
     {
-        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
-        $xml2 = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
-
         $extName = $this->_env['ext_name'];
-        $version = $xml1->modules->{$extName}->version;
+        $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml2 = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
 
         $resultXml = $this->_createConfigXml('@Framework/Module/etc/module.xsd');
         $targetXml = $resultXml->addChild('module');
         $targetXml->addAttribute('name', $extName);
-        $targetXml->addAttribute('setup_version', $version);
+        if (!empty($xml1->modules->{$extName}->version)) {
+            $targetXml->addAttribute('setup_version', (string)$xml1->modules->{$extName}->version);
+        }
         if (!empty($xml2->modules->{$extName}->depends)) {
             $sequenceXml = $targetXml->addChild('sequence');
             foreach ($xml2->modules->{$extName}->depends->children() as $depName => $_) {
@@ -1327,6 +1389,7 @@ class ConvertM1M2
                 if ('php' === $fileExt) {
                     $contents = $this->_readFile($file);
                     $contents = $this->_convertCodeContents($contents);
+                    $contents = $this->_convertCodeObjectManagerToDI($contents);
                     $this->_writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
@@ -1348,6 +1411,7 @@ class ConvertM1M2
                 $contents = call_user_func($callback, $contents, $params);
             } else {
                 $contents = $this->_convertCodeContents($contents);
+                $contents = $this->_convertCodeObjectManagerToDI($contents);
                 $targetFile = str_replace('/Model/Mysql4/', '/Model/Resource/', $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
@@ -1356,6 +1420,10 @@ class ConvertM1M2
 
     protected function _convertCodeContents($contents, $mode = 'php')
     {
+        $this->_currentFile = [];
+
+        $this->_currentFile['nl'] = preg_match('#\r\n#', $contents) ? "\r\n" : "\n";
+
         // Replace code snippets
         $codeTr = $this->_replace['code'];
         $contents = str_replace(array_keys($codeTr), array_values($codeTr), $contents);
@@ -1374,9 +1442,22 @@ class ConvertM1M2
         }
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
-        $re = '#(Mage::getModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
+        $re = '#(Mage::getModel|Mage::getResourceModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
         $contents = preg_replace_callback($re, function($m) {
-            $class = $this->_getClassName(strpos($m[1], 'helper') !== false ? 'helpers' : 'models', $m[2], false);
+            $classKey = $m[2];
+            if (strpos($m[1], 'helper') !== false) {
+                $class = $this->_getClassName('helpers', $classKey, false);
+            } else {
+                if (strpos($m[1], 'getResourceModel') !== false) {
+                    list($modKey, $clsKey) = explode('/', $classKey);
+                    if (!empty($this->_aliases['models']["{$modKey}_resource"])) {
+                        $classKey = "{$modKey}_resource/{$clsKey}";
+                    } elseif (!empty($this->_aliases['models']["{$modKey}_mysql4"])) {
+                        $classKey = "{$modKey}_mysql4/{$clsKey}";
+                    }
+                }
+                $class = $this->_getClassName('models', $classKey, false);
+            }
             $result = self::OBJ_MGR . "('{$class}')";
             return $result;
         }, $contents);
@@ -1393,9 +1474,185 @@ class ConvertM1M2
         }, $contents);
 
         // Add namespace to class declarations
-        $from = '#^(final\s+)?(abstract\s+)?class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)(extends|implements)\s|\s*$)?#ms';
-        $to = "namespace \$3;\n\n\$1\$2class \$4\$5";
-        $contents = preg_replace($from, $to, $contents);
+        $classPattern = '#^((final|abstract)\s+)?class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)(extends|implements)\s|\s*$)?#ms';
+        #$contents = preg_replace($classPattern, "namespace \$3;\n\n\$1\$2class \$4\$5", $contents);
+        if (preg_match($classPattern, $contents, $m)) {
+            $this->_currentFile['class'] = $m[3] . '\\' . $m[4];
+            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}{$m[2]}class {$m[4]}{$m[5]}", $contents);
+        }
+
+        return $contents;
+    }
+
+    protected function _convertCodeParseMethods($contents, $isController = false)
+    {
+        $nl = $this->_currentFile['nl'];
+
+        $lines = preg_split('#\r?\n#', $contents);
+        $linesCnt = sizeof($lines);
+
+        // Find start of the class
+        $classStart = null;
+        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+(\s+(extends|implements)\s+|\s*$)#';
+        for ($i = 0; $i < $linesCnt; $i++) {
+            if (preg_match($classStartRe, $lines[$i])) {
+                $classStart = $i;
+                break;
+            }
+        }
+        if (null === $classStart) { // not a class
+            $this->_currentFile['methods'] = [];
+            $this->_currentFile['lines'] = $lines;
+            return $contents;
+        }
+
+        // Find starts of all methods
+        $methods = [];
+        $methodStartRe = '#(public|protected|private)\s+(static\s+)?function\s+([a-zA-Z0-9_]+?)?\(#';
+        for ($i = 0; $i < $linesCnt; $i++) {
+            if (preg_match($methodStartRe, $lines[$i], $m)) {
+                $method = ['name' => $m[3], 'start' => $i, 'code_start' => $i];
+                if (preg_match('#\}\s*$#', $lines[$i])) {
+                    $method['end'] = $i;
+                }
+                $methods[] = $method;
+            }
+        }
+        if (!$methods) {
+            $this->_currentFile['methods'] = [];
+            $this->_currentFile['lines'] = $lines;
+            return $contents;
+        }
+
+        $lastMethodIdx = sizeof($methods) - 1;
+
+        // Find end of the last method
+        $pastEndOfClass = null;
+        for ($i = $linesCnt - 1; $i > 0; $i--) {
+            if (preg_match('#^\s*\}\s*$#', $lines[$i])) {
+                if (!$pastEndOfClass) {
+                    $pastEndOfClass = true;
+                } else {
+                    $methods[$lastMethodIdx]['end'] = $i;
+                    break;
+                }
+            }
+        }
+
+        // Find phpdocs and ends of rest of the methods
+        for ($i = $lastMethodIdx; $i >= 0; $i--) {
+            $method =& $methods[$i];
+            if (empty($method['end'])) {
+                if (preg_match('#\s+abstract\s+#', $lines[$method['start']])) {
+                    $method['end'] = $method['start'];
+                } else {
+                    for ($j = $methods[$i + 1]['start'] - 1; $j > $method['start']; $j--) {
+                        if (preg_match('#^\s*(\{\s*)?\}\s*$#', $lines[$j])) {
+                            $method['end'] = $j;
+                            break;
+                        }
+                    }
+                }
+            }
+            for ($j = $method['start'] - 1; $j > ($i ? $method['end'] : $classStart); $j--) {
+                if (empty($method['phpdoc_end'])) {
+                    if (preg_match('#^\s*\*+/\s*$#', $lines[$j])) {
+                        $method['phpdoc_end'] = $j;
+                    }
+                } else {
+                    if (preg_match('#^\s*/\*+\s*$#', $lines[$j])) {
+                        $method['phpdoc_start'] = $j;
+                        $method['start'] = $j;
+                        break;
+                    }
+                }
+            }
+        }
+        unset($method);
+
+        // Find each method contents and remove controller actions from $lines if requested
+        for ($i = $lastMethodIdx; $i >= 0; $i--) {
+            $method =& $methods[$i];
+            $length = $method['end'] - $method['start'] + 1;
+            if ($isController && preg_match('#Action$#', $method['name'])) {
+                $method['lines'] = array_splice($lines, $method['start'], $length);
+            } else {
+                $method['lines'] = array_slice($lines, $method['start'], $length);
+            }
+        }
+        unset($method);
+
+        if ($isController) {
+            $contents = join($nl, $lines);
+        }
+        $this->_currentFile['methods'] = $methods;
+        $this->_currentFile['lines'] = $lines;
+
+        return $contents;
+    }
+
+    protected function _convertCodeObjectManagerToDI($contents)
+    {
+        $construct = null;
+
+        /**
+        $this->_convertCodeFindParentConstructor();
+
+        foreach ($this->_currentFile['methods'] as $method) {
+        if ($method['name'] === '__construct') {
+        $construct = $method;
+        break;
+        }
+        }
+        if (!$construct) {
+        $construct = $this->_convertCodeBuildConstructDI();
+        }
+         */
+
+        $objMgrRe = preg_quote(self::OBJ_MGR, '#');
+        if (!preg_match_all("#{$objMgrRe}\(['\"]([\\\\A-Za-z0-9]+?)['\"]\)#", $contents, $matches, PREG_SET_ORDER)) {
+            return $contents;
+        }
+        $propertyLines = [];
+        $constructArgs = [];
+        $constructLines = [];
+        $pad = '    ';
+        $declared = [];
+        foreach ($matches as $m) {
+            $class = $m[1];
+            if (!empty($declared[$class])) {
+                continue;
+            }
+            $declared[$class] = 1;
+            $cArr = array_reverse(explode('\\', $class));
+            $var = (!empty($cArr[2]) ? $cArr[2] : '') . $cArr[1] . $cArr[0];
+            $var[0] = strtolower($var[0]);
+
+            $propertyLines[] = "{$pad}/**";
+            $propertyLines[] = "{$pad} * @var \\\\{$class}";
+            $propertyLines[] = "{$pad} */";
+            $propertyLines[] = "{$pad}protected \$_{$var};";
+            $propertyLines[] = "";
+
+            $constructArgs[] = "\\{$class} \${$var}";
+
+            $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
+
+            $contents = str_replace($m[0], "\$this->_{$var}", $contents);
+        }
+
+        $nl = $this->_currentFile['nl'];
+        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+\s+[^{]*\{#ms';
+        $classStartWith = "\$0{$nl}" . join($nl, $propertyLines);
+        $argsStr = join(", {$nl}{$pad}{$pad}", $constructArgs);
+        $assignStr = join($nl, $constructLines);
+        if (preg_match('#^(\s*public\s+function\s+__construct\()(.*?)(\)\s+\{)#ms', $contents, $m)) {
+            $comma = !empty($m[2]) ? ', ' : '';
+            $contents = str_replace($m[0], "{$m[1]}{$m[2]}{$comma}{$argsStr}{$m[3]}{$nl}{$assignStr}{$nl}", $contents);
+        } else {
+            $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}{$pad}}{$nl}";
+        }
+        $contents = preg_replace($classStartRe, $classStartWith, $contents);
 
         return $contents;
     }
@@ -1425,104 +1682,48 @@ class ConvertM1M2
 
         if (strpos($file, 'Controller.php') === false) {
             $contents = $this->_convertCodeContents($contents);
+            $contents = $this->_convertCodeObjectManagerToDI($contents);
             $this->_writeFile($targetFile, $contents, false);
             return;
         }
 
-        $this->log('CONTROLLER: ' . $origClass);
-
-        $nl = preg_match('#\r\n#', $contents) ? "\r\n" : "\n";
-        $actions = $this->_convertControllerFindActions($contents, $nl);
-
-        foreach ($actions as $action) {
-            if ('new' === $action['name']) {
-                $action['name'] = 'newAction';
-            }
-            $actionName = ucwords($action['name']);
-            $actionClass = "{$ctrlClass}_{$actionName}";
-            $txt = preg_replace('#(public\s+function\s+)([a-zA-Z0-9_]+)(\()#', '$1execute$3', $action['contents']);
-            $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
-            $classContents = $this->_convertCodeContents($classContents);
-            $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
-            $this->_writeFile("{$this->_env['ext_output_dir']}/{$actionFile}", $classContents, false);
-        }
+        #$this->log('CONTROLLER: ' . $origClass);
 
         $contents = $this->_convertCodeContents($contents);
+        $contents = $this->_convertCodeParseMethods($contents, true);
+        $contents = $this->_convertCodeObjectManagerToDI($contents);
+
         $this->_writeFile($targetFile, $contents);
+
+        $nl = $this->_currentFile['nl'];
+
+        foreach ($this->_currentFile['methods'] as $method) {
+            if (!preg_match('#^(.*)Action$#', $method['name'], $m)) {
+                continue;
+            }
+            $method['name'] = $m[1];
+            if ('new' === $method['name']) {
+                $method['name'] = 'newAction';
+            }
+            $actionName = ucwords($method['name']);
+            $actionClass = "{$ctrlClass}_{$actionName}";
+            $methodContents = join($nl, $method['lines']);
+            $txt = preg_replace('#(public\s+function\s+)([a-zA-Z0-9_]+)(\()#', '$1execute$3', $methodContents);
+            $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
+
+            $classContents = $this->_convertCodeContents($classContents);
+            $classContents = $this->_convertCodeObjectManagerToDI($classContents);
+
+            $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
+            $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
+            $this->_writeFile($targetActionFile, $classContents, false);
+        }
     }
 
-    protected function _convertControllerFindActions(&$contents, $nl)
+
+    protected function _convertCodeClassUse($contents, $className)
     {
-        $lines = preg_split('#\r?\n#', $contents);
-
-        // Find start of the class
-        for ($i = 0, $l = sizeof($lines); $i < $l; $i++) {
-            if (preg_match('#^\s*class\s+[A-Za-z0-9_]+(\s+extends|\s*$)#', $lines[$i])) {
-                $classStart = $i;
-                break;
-            }
-        }
-
-        // Find starts of all methods
-        $methods = [];
-        for ($i = 0; $i < $l; $i++) {
-            if (preg_match('#(public|protected|private)\s+function\s+([a-zA-Z0-9_]+?)(Action)?\(#', $lines[$i], $m)) {
-                $methods[] = ['name' => $m[2], 'is_action' => !empty($m[3]), 'start' => $i, 'code_start' => $i];
-            }
-        }
-
-        // Find end of the last method
-        $pastEndOfClass = null;
-        for ($i = sizeof($lines) - 1; $i > 0; $i--) {
-            if (preg_match('#^\s*\}\s*$#', $lines[$i])) {
-                if (!$pastEndOfClass) {
-                    $pastEndOfClass = true;
-                } else {
-                    $methods[sizeof($methods) - 1]['end'] = $i;
-                    break;
-                }
-            }
-        }
-
-        // Find phpdocs and ends of rest of the methods
-        for ($i = sizeof($methods) - 1; $i >= 0; $i--) {
-            $method =& $methods[$i];
-            if (empty($method['end'])) {
-                for ($j = $methods[$i + 1]['start'] - 1; $j > $method['start']; $j--) {
-                    if (preg_match('#^\s*\}\s*$#', $lines[$j])) {
-                        $method['end'] = $j;
-                        break;
-                    }
-                }
-            }
-            for ($j = $method['start'] - 1; $j > $method['end']; $j--) {
-                if (empty($method['phpdoc_end'])) {
-                    if (preg_match('#^\s*\*+/\s*$#', $lines[$j])) {
-                        $method['phpdoc_end'] = $j;
-                    }
-                } else {
-                    if (preg_match('#^\s*/\*+\s*$#', $lines[$j])) {
-                        $method['phpdoc_start'] = $j;
-                        $method['start'] = $j;
-                        break;
-                    }
-                }
-            }
-        }
-        unset($method);
-
-        for ($i = sizeof($methods) - 1; $i >= 0; $i--) {
-            $method =& $methods[$i];
-            if ($method['is_action']) {
-                $length = $method['end'] - $method['start'] + 1;
-                $method['contents'] = join($nl, array_splice($lines, $method['start'], $length));
-            } else {
-                unset($methods[$i]);
-            }
-        }
-        unset($method);
-        $contents = join($nl, $lines);
-        return $methods;
+        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
@@ -1530,5 +1731,27 @@ class ConvertM1M2
     protected function _convertAllMigrations()
     {
 
+    }
+
+    ///////////////////////////////////////////////////////////
+
+    protected function _convertExtensionStage2($extName)
+    {
+        $this->_autoloadMode = 'm2';
+
+        $this->log("EXTENSION (STAGE 2): {$extName}");
+
+        $extDir = str_replace('_', '/', $extName);
+
+        $files = $this->_findFilesRecursive("{$this->_env['output_dir']}/{$extDir}");
+        foreach ($files as $file) {
+            if ('php' !== pathinfo($file, PATHINFO_EXTENSION)) {
+                continue;
+            }
+            $class = str_replace(['/', '.php'], ['\\', ''], "{$extDir}/{$file}");
+            if (!class_exists($class)) {
+                $this->log('ERROR: Class not found: ' . $class);
+            }
+        }
     }
 }
