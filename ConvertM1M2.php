@@ -71,76 +71,81 @@ class ConvertM1M2
     const OBJ_MGR = '\Magento\Framework\App\ObjectManager::getInstance()->get';
 
     // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
-    protected $_replace = [
-        'classes' => [
-            'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
-            'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
-            'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
-            'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
-            'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
-            'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
-            'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
-            'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
-            'Mage_Adminhtml_' => 'Magento_Backend_',
-            'Mage_Admin_' => 'Magento_Backend_',
-            'Mage_Core_' => 'Magento_Framework_',
-            'Mage_Page_' => 'Magento_Framework_',
-            'Mage_' => 'Magento_',
-            'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
-            'Varien_' => 'Magento_Framework_',
-            '_Mysql4_' => '_Resource_',
-            'Zend_Json' => 'Zend_Json_Json',
-            'Zend_Log' => 'Zend_Logger',
-        ],
-        'classes_regex' => [
-            '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
-            '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
-            '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
-        ],
-        'code' => [
-            'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
-            'Mage_Core_Model_Translate::CACHE_TAG' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
+    protected $_replace;
 
-            'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->log(',
-            'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
-            'Mage::dispatchEvent(' =>  self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
-            'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
-            'Mage::app()->getLocale()->getLocaleCode()' => self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->getLocale()',
-            'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
-            'Mage::app()->getCacheInstance()->canUse(' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\StateInterface\')->isEnabled(',
-            'Mage::app()->getCacheInstance()' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')',
-            'Mage::getConfig()->getModuleDir(' => self::OBJ_MGR . '(\'Magento\Framework\Module\Dir\Reader\')->getModuleDir(',
-            'Mage::getConfig()->getVarDir(' => self::OBJ_MGR . '(\'Magento\Framework\App\Filesystem\DirectoryList\')->getPath(\'var\') . (',
-            'Mage::getConfig()->createDirIfNotExists(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\Directory\Write\')->create(',
-            'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
-            'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
-            'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
-            'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
-            'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
-            'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
-            'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
-            'Mage::throwException(' => 'throw new Exception(',
-            ' extends Exception' => ' extends \Exception',
-            //TODO: Need help with:
-            #'Mage::app()->getConfig()->getNode(' => '',
-        ],
-        'code_regex' => [
-            '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
-            '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
-            '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
-        ],
-        'acl_keys' => [
-            'admin' => 'Magento_Backend::admin',
-            'admin/sales' => 'Magento_Sales:sales',
-            'admin/reports' => 'Magento_Reports:report',
-            'admin/system' => 'Magento_Backend::stores',
-            'admin/system/config' => 'Magento_Backend::stores_settings',
-        ],
-        'menu' => [
-            'sales' => 'Magento_Sales::sales',
-            'report' => 'Magento_Reports:report',
-        ],
-    ];
+    protected function _getReplaceMaps()
+    {
+        return [
+            'classes' => [
+                'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
+                'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
+                'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+                'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
+                'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
+                'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
+                'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
+                'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
+                'Mage_Adminhtml_' => 'Magento_Backend_',
+                'Mage_Admin_' => 'Magento_Backend_',
+                'Mage_Core_' => 'Magento_Framework_',
+                'Mage_Page_' => 'Magento_Framework_',
+                'Mage_' => 'Magento_',
+                'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
+                'Varien_' => 'Magento_Framework_',
+                '_Mysql4_' => '_Resource_',
+                'Zend_Json' => 'Zend_Json_Json',
+                'Zend_Log' => 'Zend_Logger',
+            ],
+            'classes_regex' => [
+                '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
+                '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
+                '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
+            ],
+            'code' => [
+                'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
+                'Mage_Core_Model_Translate::CACHE_TAG' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
+
+                'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->log(',
+                'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
+                'Mage::dispatchEvent(' => self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
+                'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
+                'Mage::app()->getLocale()->getLocaleCode()' => self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->getLocale()',
+                'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
+                'Mage::app()->getCacheInstance()->canUse(' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\StateInterface\')->isEnabled(',
+                'Mage::app()->getCacheInstance()' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')',
+                'Mage::getConfig()->getModuleDir(' => self::OBJ_MGR . '(\'Magento\Framework\Module\Dir\Reader\')->getModuleDir(',
+                'Mage::getConfig()->getVarDir(' => self::OBJ_MGR . '(\'Magento\Framework\App\Filesystem\DirectoryList\')->getPath(\'var\') . (',
+                'Mage::getConfig()->createDirIfNotExists(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\Directory\Write\')->create(',
+                'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
+                'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
+                'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
+                'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
+                'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
+                'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
+                'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
+                'Mage::throwException(' => 'throw new Exception(',
+                ' extends Exception' => ' extends \Exception',
+                //TODO: Need help with:
+                #'Mage::app()->getConfig()->getNode(' => '',
+            ],
+            'code_regex' => [
+                '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
+                '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
+                '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
+            ],
+            'acl_keys' => [
+                'admin' => 'Magento_Backend::admin',
+                'admin/sales' => 'Magento_Sales:sales',
+                'admin/reports' => 'Magento_Reports:report',
+                'admin/system' => 'Magento_Backend::stores',
+                'admin/system/config' => 'Magento_Backend::stores_settings',
+            ],
+            'menu' => [
+                'sales' => 'Magento_Sales::sales',
+                'report' => 'Magento_Reports:report',
+            ],
+        ];
+    }
 
     protected $_currentFile;
 
@@ -154,6 +159,7 @@ class ConvertM1M2
 
         spl_autoload_register([$this, 'autoloadCallback']);
 
+        $this->_replace = $this->_getReplaceMaps();
     }
 
     public function autoloadCallback($class)
