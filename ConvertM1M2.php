@@ -85,14 +85,18 @@ class ConvertM1M2
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
+                'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
                 'Mage_Adminhtml_' => 'Magento_Backend_',
+                'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
+                'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
                 'Mage_Admin_' => 'Magento_Backend_',
                 'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
                 'Varien_' => 'Magento_Framework_',
-                '_Mysql4_' => '_Resource_',
+                '_Mysql4_' => '_ResourceModel_',
+                '_Resource_' => '_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Logger',
             ],
@@ -542,12 +546,12 @@ class ConvertM1M2
         $this->_convertConfigWidget();
     }
 
-    protected function _createConfigXml($schemaPath)
+    protected function _createConfigXml($schemaPath, $rootTagName = 'config')
     {
         $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
         return simpledom_load_string('<?xml version="1.0"?>
-<config xmlns:xsi="' . $this->_schemas['@XSI'] . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
-</config>');
+<' . $rootTagName . ' xmlns:xsi="' . $this->_schemas['@XSI'] . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
+</' . $rootTagName . '>');
     }
 
     protected function _convertConfigModule()
@@ -1151,12 +1155,10 @@ class ConvertM1M2
         $xml = $this->_readFile($file);
 
         foreach ($xml->children() as $layoutName => $layoutNode) {
-            $resultXml = $this->_createConfigXml('@Framework/View/Layout/etc/page_configuration.xsd');
-            $bodyXml = null;
+            $resultXml = $this->_createConfigXml('@Framework/View/Layout/etc/page_configuration.xsd', 'page');
+            $headXml = $resultXml->addChild('head');
+            $bodyXml = $resultXml->addChild('body');
             foreach ($layoutNode->children() as $nodeTag => $node) {
-                if (!$bodyXml && ('remove' === $nodeTag || 'reference' === $nodeTag || 'block' === $nodeTag)) {
-                    $bodyXml = $resultXml->addChild('body');
-                }
                 switch ($nodeTag) {
                     case 'update':
                         $updateXml = $resultXml->addChild('update');
@@ -1173,17 +1175,53 @@ class ConvertM1M2
                         break;
 
                     case 'reference':
+                        if ((string)$node['name'] === 'head') {
+                            foreach ($node->children() as $headNode) {
+                                $this->_convertLayoutHeadNode($headNode, $headXml);
+                            }
+                            break;
+                        }
+                        //nobreak;
+                        
                     case 'block':
                         $this->_convertLayoutRecursive($area, $node, $bodyXml);
                         break;
 
 
                     default:
-                        //$bodyXml->
+                        //...
                 }
+            }
+            if (!$headXml->children()) {
+                unset($headXml[0][0]);
+            }
+            if (!$bodyXml->children()) {
+                unset($bodyXml[0][0]);
             }
 
             $this->_writeFile("{$outputDir}/{$layoutName}.xml", $resultXml);
+        }
+    }
+    
+    protected function _convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    {
+        foreach ($sourceXml->children() as $child) {
+            $path = $this->_env['ext_name'] . '::' . (string)$child; 
+            break;
+        }
+        switch ((string)$sourceXml['method']) {
+            case 'addJs':
+                $targetNode = $targetXml->addChild('js');
+                $targetNode->addAttribute('class', $path);
+                break;
+                
+            case 'addCss':
+                $targetNode = $targetXml->addChild('css');
+                $targetNode->addAttribute('src', $path);
+                break;
+                
+            default:
+                $targetNode = $targetXml->appendChild($sourceXml->cloneNode(true));
         }
     }
 
@@ -1198,10 +1236,10 @@ class ConvertM1M2
                     if (is_subclass_of($className, 'Mage_Core_Block_Text_List')) {
                         $targetChildXml = $targetXml->addChild('referenceContainer');
                     } else {
-                        $targetChildXml = $targetXml->addChild('referenceBlock');
+                        $targetChildXml = $targetXml->addChild('reference');
                     }
                 } else {
-                    $targetChildXml = $targetXml->addChild('referenceBlock');
+                    $targetChildXml = $targetXml->addChild('reference');
                 }
                 $targetChildXml->addAttribute('name', $nodeName);
                 break;
