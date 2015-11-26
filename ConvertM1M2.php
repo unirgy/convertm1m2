@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-*/
+ */
 
 
 if (PHP_SAPI === 'cli') {
@@ -51,7 +51,7 @@ die;
 
 class ConvertM1M2
 {
-    
+
     protected $_env = [];
 
     protected $_fileCache = [];
@@ -127,8 +127,13 @@ class ConvertM1M2
                 'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
                 'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
                 'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
+                'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
                 'Mage::throwException(' => 'throw new Exception(',
                 ' extends Exception' => ' extends \Exception',
+                '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
+                '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
+                '$this->_redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
+                '$this->_forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
                 //TODO: Need help with:
                 #'Mage::app()->getConfig()->getNode(' => '',
             ],
@@ -136,6 +141,7 @@ class ConvertM1M2
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
                 '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
                 '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
+                '#Mage::getConfig\(\)->getNode\(([^)]+)\)#' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \'default\')',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -404,22 +410,22 @@ class ConvertM1M2
         if (file_exists($filename)) {
             unlink($filename);
         }
-/*
-        $dir = dirname($filename);
-        if (file_exists($dir)) {
-            $empty = true;
-            $dirFiles = glob($dir . '/*');
-            foreach ($dirFiles as $file) {
-                if (!preg_match('#(^|/)\.+$#', $file)) {
-                    $empty = false;
-                    break;
+        /*
+                $dir = dirname($filename);
+                if (file_exists($dir)) {
+                    $empty = true;
+                    $dirFiles = glob($dir . '/*');
+                    foreach ($dirFiles as $file) {
+                        if (!preg_match('#(^|/)\.+$#', $file)) {
+                            $empty = false;
+                            break;
+                        }
+                    }
+                    if ($empty) {
+                        unlink($dir);
+                    }
                 }
-            }
-            if ($empty) {
-                unlink($dir);
-            }
-        }
-*/
+        */
     }
 
     protected function _findFilesRecursive($dir, $expand = false)
@@ -546,6 +552,11 @@ class ConvertM1M2
         $this->_convertConfigWidget();
     }
 
+    /**
+     * @param string $schemaPath
+     * @param string $rootTagName
+     * @return SimpleDOM
+     */
     protected function _createConfigXml($schemaPath, $rootTagName = 'config')
     {
         $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
@@ -1181,8 +1192,8 @@ class ConvertM1M2
                             }
                             break;
                         }
-                        //nobreak;
-                        
+                    //nobreak;
+
                     case 'block':
                         $this->_convertLayoutRecursive($area, $node, $bodyXml);
                         break;
@@ -1202,11 +1213,11 @@ class ConvertM1M2
             $this->_writeFile("{$outputDir}/{$layoutName}.xml", $resultXml);
         }
     }
-    
+
     protected function _convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         foreach ($sourceXml->children() as $child) {
-            $path = $this->_env['ext_name'] . '::' . (string)$child; 
+            $path = $this->_env['ext_name'] . '::' . (string)$child;
             break;
         }
         switch ((string)$sourceXml['method']) {
@@ -1214,12 +1225,12 @@ class ConvertM1M2
                 $targetNode = $targetXml->addChild('js');
                 $targetNode->addAttribute('class', $path);
                 break;
-                
+
             case 'addCss':
                 $targetNode = $targetXml->addChild('css');
                 $targetNode->addAttribute('src', $path);
                 break;
-                
+
             default:
                 $targetNode = $targetXml->appendChild($sourceXml->cloneNode(true));
         }
@@ -1529,6 +1540,17 @@ class ConvertM1M2
             $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}{$m[2]}class {$m[4]}{$m[5]}", $contents);
         }
 
+        $contents = $this->_convertCodeContentsSpecialCases($contents);
+
+        return $contents;
+    }
+
+    protected function _convertCodeContentsSpecialCases($contents)
+    {
+        $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
+            return $m[1] . $this->_getOpportunisticArgValue($m[2]) . $m[3];
+        }, $contents);
+
         return $contents;
     }
 
@@ -1639,23 +1661,9 @@ class ConvertM1M2
         return $contents;
     }
 
-    protected function _convertCodeObjectManagerToDI($contents)
+    protected function _convertCodeObjectManagerToDI($contents, $context = null)
     {
         $construct = null;
-
-        /**
-        $this->_convertCodeFindParentConstructor();
-
-        foreach ($this->_currentFile['methods'] as $method) {
-        if ($method['name'] === '__construct') {
-        $construct = $method;
-        break;
-        }
-        }
-        if (!$construct) {
-        $construct = $this->_convertCodeBuildConstructDI();
-        }
-         */
 
         $objMgrRe = preg_quote(self::OBJ_MGR, '#');
         if (!preg_match_all("#{$objMgrRe}\(['\"]([\\\\A-Za-z0-9]+?)['\"]\)#", $contents, $matches, PREG_SET_ORDER)) {
@@ -1664,8 +1672,17 @@ class ConvertM1M2
         $propertyLines = [];
         $constructArgs = [];
         $constructLines = [];
+        $constructParentArgs = [];
         $pad = '    ';
         $declared = [];
+
+        if ($context) {
+            $contextMethod = '_convertDIContext' . ucfirst($context);
+            if (method_exists($this, $contextMethod)) {
+                $this->{$contextMethod}($constructArgs, $constructParentArgs);
+            }
+        }
+
         foreach ($matches as $m) {
             $class = $m[1];
             if (!empty($declared[$class])) {
@@ -1686,6 +1703,8 @@ class ConvertM1M2
 
             $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
 
+            //$constructParentArgs[] = $var;
+
             $contents = str_replace($m[0], "\$this->_{$var}", $contents);
         }
 
@@ -1698,12 +1717,19 @@ class ConvertM1M2
             $comma = !empty($m[2]) ? ', ' : '';
             $contents = str_replace($m[0], "{$m[1]}{$m[2]}{$comma}{$argsStr}{$m[3]}{$nl}{$assignStr}{$nl}", $contents);
         } else {
+            $constructParentArgsStr = join(', ', $constructParentArgs);
             $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}" .
-                               "{$nl}{$pad}{$pad}parent::__construct();{$nl}{$pad}}{$nl}";
+                "{$nl}{$pad}{$pad}parent::__construct({$constructParentArgsStr});{$nl}{$pad}}{$nl}";
         }
         $contents = preg_replace($classStartRe, $classStartWith, $contents);
 
         return $contents;
+    }
+
+    protected function _convertDIContextController(array &$constructArgs, array &$constructParentArgs)
+    {
+        $constructArgs[] = '\Magento\Backend\App\Action\Context $context';
+        $constructParentArgs[] = '$context';
     }
 
     ///////////////////////////////////////////////////////////
@@ -1740,7 +1766,7 @@ class ConvertM1M2
 
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
-        $contents = $this->_convertCodeObjectManagerToDI($contents);
+        $contents = $this->_convertCodeObjectManagerToDI($contents, 'controller');
 
         $this->_writeFile($targetFile, $contents);
 
@@ -1761,7 +1787,7 @@ class ConvertM1M2
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
-            $classContents = $this->_convertCodeObjectManagerToDI($classContents);
+            $classContents = $this->_convertCodeObjectManagerToDI($classContents, 'controller');
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
