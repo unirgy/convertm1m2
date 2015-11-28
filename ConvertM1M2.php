@@ -90,6 +90,24 @@ class ConvertM1M2
         ],
     ];
 
+    protected $_reservedWordsRe = '#^(
+(a(bstract|nd|rray|s))|
+(c(a(llable|se|tch)|l(ass|one)|on(st|tinue)))|
+(d(e(clare|fault)|ie|o))|
+(e(cho|lse(if)?|mpty|nd(declare|for(each)?|if|switch|while)|val|x(it|tends)))|
+(f(inal|or(each)?|unction))|
+(g(lobal|oto))|
+(i(f|mplements|n(clude(_once)?|st(anceof|eadof)|terface)|sset))|
+(map)|
+(n(amespace|ew))|
+(p(r(i(nt|vate)|otected)|ublic))|
+(re(quire(_once)?|turn))|
+(s(tatic|witch))|
+(t(hrow|r(ait|y)))|
+(u(nset|se))|
+(__halt_compiler|break|list|(x)?or|var|while)
+)$#ix';
+
     protected function _getReplaceMaps()
     {
         return [
@@ -98,11 +116,16 @@ class ConvertM1M2
             ],
             'classes' => [
                 'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
+                'Mage_Core_Helper_Data' => 'Magento_Framework_App_Helper_AbstractHelper',
                 'Mage_Core_Helper_' => 'Magento_Framework_App_Helper_',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
                 'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
                 'Mage_Core_Model_Mysql4_Collection_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_Collection_AbstractCollection',
                 'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
+                'Mage_Core_Model_Url_Rewrite' => 'Magento_UrlRewrite_Model_UrlRewrite',
+                'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
+                'Mage_Core_Model_Mysql4_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
@@ -110,6 +133,7 @@ class ConvertM1M2
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
+                'Mage_Adminhtml_Block_System_Config_' => 'Magento_Config_Block_System_Config_',
                 'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
                 'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
                 'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
@@ -121,6 +145,7 @@ class ConvertM1M2
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
+                'Varien_Object' => 'Magento_Framework_DataObject',
                 'Varien_' => 'Magento_Framework_',
                 '_Mysql4_' => '_ResourceModel_',
                 '_Resource_' => '_ResourceModel_',
@@ -1631,7 +1656,7 @@ class ConvertM1M2
         #$contents = preg_replace($classPattern, "namespace \$3;\n\n\$1\$2class \$4\$5", $contents);
         if (preg_match($classPattern, $contents, $m)) {
             $this->_currentFile['class'] = $m[3] . '\\' . $m[4];
-            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}{$m[2]}class {$m[4]}{$m[5]}", $contents);
+            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}class {$m[4]}{$m[5]}", $contents);
         }
 
         return $contents;
@@ -1763,6 +1788,7 @@ class ConvertM1M2
 
         if ($isController) {
             $contents = join($nl, $lines);
+            $contents = preg_replace('#^(\s*)(class\s+.*)$#m', '$1abstract $2', $contents);
         }
         $this->_currentFile['methods'] = $methods;
         $this->_currentFile['lines'] = $lines;
@@ -1895,7 +1921,7 @@ class ConvertM1M2
             }
             $alias = $parts[$i];
             $useAs = false;
-            while ($i > 0 && !empty($mapByAlias[$alias])) {
+            while ($i > 0 && !empty($mapByAlias[$alias]) || preg_match($this->_reservedWordsRe, $alias)) {
                 $i--;
                 $alias = $parts[$i] . $alias;
                 $useAs = true;
@@ -1906,6 +1932,11 @@ class ConvertM1M2
         }
 
         $nl = $this->_currentFile['nl'];
+        uksort($mapByClass, function($s1, $s2) {
+            $l1 = strlen($s1);
+            $l2 = strlen($s2);
+            return $l1 < $l2 ? 1 : ($l1 > $l2 ? -1 : 0);
+        });
         $contents = str_replace(array_keys($mapByClass), array_values($mapByClass), $contents);
         $contents = str_replace($namespaceLine, $namespaceLine . $nl . $nl . join($nl, $useLines), $contents);
         return $contents;
@@ -1975,12 +2006,6 @@ class ConvertM1M2
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
             $this->_writeFile($targetActionFile, $classContents, false);
         }
-    }
-
-
-    protected function _convertCodeClassUse($contents, $className)
-    {
-        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
