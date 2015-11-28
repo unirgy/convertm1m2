@@ -83,6 +83,7 @@ class ConvertM1M2
                 'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
                 'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+                'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
@@ -105,7 +106,7 @@ class ConvertM1M2
                 '_Mysql4_' => '_ResourceModel_',
                 '_Resource_' => '_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
-                'Zend_Log' => 'Zend_Logger',
+                'Zend_Log' => 'Zend_Log_Logger',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
@@ -1511,6 +1512,7 @@ class ConvertM1M2
                     $contents = $this->_readFile($file);
                     $contents = $this->_convertCodeContents($contents);
                     $contents = $this->_convertCodeObjectManagerToDI($contents);
+                    $contents = $this->_convertNamespaceUse($contents);
                     $this->_writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
@@ -1533,7 +1535,9 @@ class ConvertM1M2
             } else {
                 $contents = $this->_convertCodeContents($contents);
                 $contents = $this->_convertCodeObjectManagerToDI($contents);
-                $targetFile = str_replace('/Model/Mysql4/', '/Model/Resource/', $targetFile);
+                $contents = $this->_convertNamespaceUse($contents);
+                $targetFile = str_replace(['/Model/Mysql4/', '/Model/Resource/'],
+                    ['/Model/ResourceModel/', '/Model/ResourceModel/'], $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
         }
@@ -1552,14 +1556,7 @@ class ConvertM1M2
         $contents = preg_replace(array_keys($codeTr), array_values($codeTr), $contents);
 
         if ($mode === 'php') {
-            // Replace $this->_init() in models and resources with class names and table names
-            $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"][,\)])#', function ($m) {
-                if ($m[3] === ')') {
-                    return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
-                } else {
-                    return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
-                }
-            }, $contents);
+            $contents = $this->_convertCodeContentsPhpMode($contents);
         }
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
@@ -1602,13 +1599,21 @@ class ConvertM1M2
             $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}{$m[2]}class {$m[4]}{$m[5]}", $contents);
         }
 
-        $contents = $this->_convertCodeContentsSpecialCases($contents);
-
         return $contents;
     }
 
-    protected function _convertCodeContentsSpecialCases($contents)
+    protected function _convertCodeContentsPhpMode($contents)
     {
+        // Replace $this->_init() in models and resources with class names and table names
+        $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"]([,\)]))#', function ($m) {
+            if ($m[4] === ')') {
+                return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
+            } else {
+                return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
+            }
+        }, $contents);
+
+        // convert block name to block class
         $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
             return $m[1] . $this->_getOpportunisticArgValue($m[2]) . $m[3];
         }, $contents);
@@ -1794,6 +1799,59 @@ class ConvertM1M2
         $constructParentArgs[] = '$context';
     }
 
+    protected function _convertNamespaceUse($contents)
+    {
+        if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
+            return $contents;
+        }
+        $namespaceLine = $m[0];
+        $namespace = '\\' . $m[1];
+        if (!preg_match('#^\s*class\s+([^\s]+)#m', $contents, $m)) {
+            return $contents;
+        }
+        $fileAlias = $m[1];
+        $fileClass = $namespace . '\\' . $m[1];
+        if (!preg_match_all('#[^\\\\A-Za-z0-9]((\\\\([A-Za-z0-9]+))+)(\s*\*/)?#', $contents, $matches, PREG_SET_ORDER)) {
+            return $contents;
+        }
+        $mapByClass = [];
+        $mapByAlias = [$fileAlias => $fileClass];
+        $useLines = [];
+        foreach ($matches as $m) {
+            if (!empty($m[4])) {
+                continue;
+            }
+            $class = $m[1];
+            if ($class === $namespace) {
+                continue;
+            }
+            if (!empty($mapByClass[$class])) {
+                continue;
+            }
+            $parts = explode('\\', $class);
+            array_shift($parts);
+            $i = sizeof($parts) - 1;
+            if ($i < 2) {
+                continue;
+            }
+            $alias = $parts[$i];
+            $useAs = false;
+            while ($i > 0 && !empty($mapByAlias[$alias])) {
+                $i--;
+                $alias = $parts[$i] . $alias;
+                $useAs = true;
+            }
+            $mapByClass[$class] = $alias;
+            $mapByAlias[$alias] = $class;
+            $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ";\n";
+        }
+
+        $nl = $this->_currentFile['nl'];
+        $contents = str_replace(array_keys($mapByClass), array_values($mapByClass), $contents);
+        $contents = str_replace($namespaceLine, $namespaceLine . $nl . $nl . join($nl, $useLines), $contents);
+        return $contents;
+    }
+
     ///////////////////////////////////////////////////////////
 
     protected function _convertAllControllers()
@@ -1820,6 +1878,7 @@ class ConvertM1M2
         if (strpos($file, 'Controller.php') === false) {
             $contents = $this->_convertCodeContents($contents);
             $contents = $this->_convertCodeObjectManagerToDI($contents);
+            $contents = $this->_convertNamespaceUse($contents);
             $this->_writeFile($targetFile, $contents, false);
             return;
         }
@@ -1829,6 +1888,7 @@ class ConvertM1M2
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
         $contents = $this->_convertCodeObjectManagerToDI($contents, 'controller');
+        $contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -1850,6 +1910,7 @@ class ConvertM1M2
 
             $classContents = $this->_convertCodeContents($classContents);
             $classContents = $this->_convertCodeObjectManagerToDI($classContents, 'controller');
+            $contents = $this->_convertNamespaceUse($contents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
