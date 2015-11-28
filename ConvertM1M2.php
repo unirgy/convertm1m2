@@ -64,8 +64,8 @@ class ConvertM1M2
 
     protected $_schemas = [
         '@XSI' => 'http://www.w3.org/2001/XMLSchema-instance',
-        '@Framework/' => '../../../../../lib/internal/Magento/Framework/',
-        '@Magento/' => '../../../Magento/',
+        '@Framework/' => '../../../../../lib/internal/Magento/Framework/', //deprecated
+        '@Magento/' => '../../../Magento/', //deprecated
     ];
 
     const OBJ_MGR = '\Magento\Framework\App\ObjectManager::getInstance()->get';
@@ -76,6 +76,9 @@ class ConvertM1M2
     protected function _getReplaceMaps()
     {
         return [
+            'modules' => [
+                'Mage_Adminhtml' => 'Magento_Backend',
+            ],
             'classes' => [
                 'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
@@ -86,11 +89,15 @@ class ConvertM1M2
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
+                'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
+                'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
+                'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
                 'Mage_Adminhtml_' => 'Magento_Backend_',
                 'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
                 'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
                 'Mage_Admin_' => 'Magento_Backend_',
                 'Mage_Core_' => 'Magento_Framework_',
+                'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
@@ -148,7 +155,7 @@ class ConvertM1M2
                 'admin/sales' => 'Magento_Sales:sales',
                 'admin/reports' => 'Magento_Reports:report',
                 'admin/system' => 'Magento_Backend::stores',
-                'admin/system/config' => 'Magento_Backend::stores_settings',
+                'admin/system/config' => ['Magento_Backend::stores_settings', 'Magento_Config::config'],
             ],
             'menu' => [
                 'sales' => 'Magento_Sales::sales',
@@ -540,7 +547,8 @@ class ConvertM1M2
         $this->_convertConfigFrontendDI();
         $this->_convertConfigAdminhtmlDI();
         $this->_convertConfigEvents();
-        $this->_convertConfigRoutes();
+        $this->_convertConfigRoutesFrontend();
+        $this->_convertConfigRoutesAdmin();
         $this->_convertConfigMenu();
         $this->_convertConfigSystem();
         $this->_convertConfigCrontab();
@@ -560,7 +568,7 @@ class ConvertM1M2
     protected function _createConfigXml($schemaPath, $rootTagName = 'config')
     {
         $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
-        return simpledom_load_string('<?xml version="1.0"?>
+        return simpledom_load_string('<?xml version="1.0" encoding="UTF-8"?>
 <' . $rootTagName . ' xmlns:xsi="' . $this->_schemas['@XSI'] . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
 </' . $rootTagName . '>');
     }
@@ -571,7 +579,7 @@ class ConvertM1M2
         $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
         $xml2 = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/Module/etc/module.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:Module/etc/module.xsd');
         $targetXml = $resultXml->addChild('module');
         $targetXml->addAttribute('name', $extName);
         if (!empty($xml1->modules->{$extName}->version)) {
@@ -579,7 +587,10 @@ class ConvertM1M2
         }
         if (!empty($xml2->modules->{$extName}->depends)) {
             $sequenceXml = $targetXml->addChild('sequence');
+            $from = array_keys($this->_replace['modules']);
+            $to = array_values($this->_replace['modules']);
             foreach ($xml2->modules->{$extName}->depends->children() as $depName => $_) {
+                $depName = str_replace($from, $to, $depName);
                 $sequenceXml->addChild('module')->addAttribute('name', $depName);
             }
         }
@@ -589,7 +600,7 @@ class ConvertM1M2
 
     protected function _convertConfigDefaults()
     {
-        $resultXml = $this->_createConfigXml('@Magento/Store/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Store:etc/config.xsd');
 
         $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->default)) {
@@ -620,15 +631,15 @@ class ConvertM1M2
 
     protected function _convertConfigAcl()
     {
-        $resultXml = $this->_createConfigXml('@Framework/Acl/etc/acl.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:Acl/etc/acl.xsd');
         $targetXml = $resultXml->addChild('acl')->addChild('resources');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml");
+        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->acl)) {
             $this->_convertConfigAclRecursive($xml1->adminhtml->acl->resources, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml");
+        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
             $this->_convertConfigAclRecursive($xml2->acl->resources, $targetXml);
         }
@@ -645,7 +656,16 @@ class ConvertM1M2
         foreach ($sourceXml->children() as $key => $sourceNode) {
             $attr = [];
             if (!empty($this->_replace['acl_keys'][$path . $key])) {
-                $attr['id'] = $this->_replace['acl_keys'][$path . $key];
+                $aclId = $this->_replace['acl_keys'][$path . $key];
+                if (is_array($aclId)) {
+                    for ($i = 0, $l = sizeof($aclId) - 1; $i < $l; $i++) {
+                        $targetXml = $targetXml->addChild('resource');
+                        $targetXml->addAttribute('id', $aclId[$i]);
+                    }
+                    $attr['id'] = $aclId[$i];
+                } else {
+                    $attr['id'] = $aclId;
+                }
             } else {
                 $attr['id'] = $this->_env['ext_name'] . ':' . $key;
             }
@@ -673,7 +693,7 @@ class ConvertM1M2
 
         if (!empty($xml->global->resources)) {
 
-            $resultXml = $this->_createConfigXml('@Framework/App/etc/resources.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/resources.xsd');
 
             foreach ($xml->global->resources->children() as $resKey => $resNode) {
                 if (empty($resNode->connection->use)) {
@@ -694,7 +714,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/ObjectManager/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         foreach (['models', 'helpers', 'blocks'] as $type) {
             if (empty($xml->global->{$type})) {
@@ -725,7 +745,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/ObjectManager/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         if (!empty($xml->frontend->secure_url)) {
             $n1 = $resultXml->addChild('type');
@@ -761,7 +781,7 @@ class ConvertM1M2
             $xmlFilename = 'etc/' . $areaDir . 'events.xml';
 
             if (!empty($xml->{$area}->events)) {
-                $resultXml = $this->_createConfigXml('@Framework/Event/etc/events.xsd');
+                $resultXml = $this->_createConfigXml('urn:magento:framework:Event/etc/events.xsd');
 
                 foreach ($xml->{$area}->events->children() as $eventName => $eventNode) {
                     $targetEventNode = $resultXml->addChild('event');
@@ -783,55 +803,94 @@ class ConvertM1M2
         }
     }
 
-    protected function _convertConfigRoutes()
+    protected function _convertConfigRoutesFrontend()
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        foreach (['frontend' => 'frontend/', 'admin' => 'adminhtml/'] as $area => $areaDir) {
-            $xmlFilename = 'etc/' . $areaDir . 'routes.xml';
+        $xmlFilename = 'etc/frontend/routes.xml';
 
-            if (!empty($xml->{$area}->routers)) {
-                $resultXml = $this->_createConfigXml('@Framework/App/etc/routes.xsd');
+        if (!empty($xml->frontend->routers)) {
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
 
-                $targetRouters = [];
-                foreach ($xml->{$area}->routers->children() as $routeName => $routeNode) {
-                    $routerName = (string)$routeNode->use;
-                    if (empty($targetRouters[$routerName])) {
-                        $targetRouters[$routerName] = $resultXml->addChild('router');
-                        $targetRouters[$routerName]->addAttribute('id', $routerName);
-                    }
-                    $targetRouteNode = $targetRouters[$routerName]->addChild('route');
-                    $targetRouteNode->addAttribute('id', $routeName);
-                    $targetRouteNode->addAttribute('frontName', (string)$routeNode->args->frontName);
-                    $targetRouteNode->addChild('module')->addAttribute('name', (string)$routeNode->args->module);
+            $targetRouters = [];
+            foreach ($xml->frontend->routers->children() as $routeName => $routeNode) {
+                $routerName = (string)$routeNode->use;
+                if (empty($targetRouters[$routerName])) {
+                    $targetRouters[$routerName] = $resultXml->addChild('router');
+                    $targetRouters[$routerName]->addAttribute('id', $routerName);
                 }
-
-                $this->_writeFile($xmlFilename, $resultXml, true);
-            } else {
-                $this->_deleteFile($xmlFilename, true);
+                $targetRouteNode = $targetRouters[$routerName]->addChild('route');
+                $targetRouteNode->addAttribute('id', $routeName);
+                $targetRouteNode->addAttribute('frontName', (string)$routeNode->args->frontName);
+                $targetRouteNode->addChild('module')->addAttribute('name', (string)$routeNode->args->module);
             }
+            $this->_writeFile($xmlFilename, $resultXml, true);
+        } else {
+            $this->_deleteFile($xmlFilename, true);
+        }
+    }
+
+    protected function _convertConfigRoutesAdmin()
+    {
+        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+
+        $xmlFilename = 'etc/adminhtml/routes.xml';
+
+        if (!empty($xml->admin->routers->adminhtml->args->modules)) {
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
+
+            $routerName = 'admin';
+            $targetRouters = [];
+            $moduleFrom = array_keys($this->_replace['modules']);
+            $moduleTo = array_values($this->_replace['modules']);
+            foreach ($xml->admin->routers->adminhtml->args->modules->children() as $routeName => $routeNode) {
+                if (empty($targetRouters[$routerName])) {
+                    $targetRouters[$routerName] = $resultXml->addChild('router');
+                    $targetRouters[$routerName]->addAttribute('id', $routerName);
+                }
+                $routeId = preg_replace('#admin$#', '', $routeName);
+                $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode);
+
+                $targetRouteNode = $targetRouters[$routerName]->addChild('route');
+                $targetRouteNode->addAttribute('id', $routeId);
+                $targetRouteNode->addAttribute('frontName', $routeId);
+                $module = $targetRouteNode->addChild('module');
+                $module->addAttribute('name', $moduleName);
+                if (!empty($routeNode['before'])) {
+                    $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode['before']);
+                    $module->addAttribute('before', $moduleName);
+                }
+                if (!empty($routeNode['after'])) {
+                    $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode['after']);
+                    $module->addAttribute('after', $moduleName);
+                }
+            }
+
+            $this->_writeFile($xmlFilename, $resultXml, true);
+        } else {
+            $this->_deleteFile($xmlFilename, true);
         }
     }
 
     protected function _convertConfigMenu()
     {
-        $resultXml = $this->_createConfigXml('@Magento/Backend/etc/menu.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Backend:etc/menu.xsd');
         $targetXml = $resultXml->addChild('menu');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml");
+        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->menu)) {
             $this->_convertConfigMenuRecursive($xml1->adminhtml->menu, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml");
+        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
             $this->_convertConfigMenuRecursive($xml2->menu, $targetXml);
         }
 
         if ($targetXml->children()) {
-            $this->_writeFile('etc/menu.xml', $resultXml);
+            $this->_writeFile('etc/adminhtml/menu.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/menu.xml');
+            $this->_deleteFile('etc/adminhtml/menu.xml', true);
         }
     }
 
@@ -862,15 +921,17 @@ class ConvertM1M2
                 }
             }
             if ($parent) {
-                $attr['parent'] = $attr['id'];
+                $attr['parent'] = $parent ? $parent : 'Magento_Backend::content';
             }
 
-            $targetNode = $targetXml->addChild('add');
-            foreach ($attr as $k => $v) {
-                $targetNode->addAttribute($k, $v);
+            if (!empty($attr['title'])) {
+                $targetNode = $targetXml->addChild('add');
+                foreach ($attr as $k => $v) {
+                    $targetNode->addAttribute($k, $v);
+                }
             }
             if (!empty($srcNode->children)) {
-                $this->_convertConfigMenuRecursive($srcNode->children(), $targetXml, $attr['id']);
+                $this->_convertConfigMenuRecursive($srcNode->children, $targetXml, $attr['id']);
             }
         }
     }
@@ -879,7 +940,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/system.xml", true);
         if ($xml) {
-            $resultXml = $this->_createConfigXml('@Magento/Config/etc/system_file.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Config:etc/system_file.xsd');
             $targetXml = $resultXml->addChild('system');
 
             if (!empty($xml->tabs)) {
@@ -890,6 +951,7 @@ class ConvertM1M2
             if (!empty($xml->sections)) {
                 foreach ($xml->sections->children() as $sectionId => $sectionNode) {
                     $targetSectionNode = $this->_convertConfigSystemNode('section', $sectionNode, $targetXml);
+                    $targetSectionNode->addChild('resource', $this->_env['ext_name'] . '::system_config');
                     if (empty($sectionNode->groups)) {
                         continue;
                     }
@@ -951,7 +1013,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml->crontab)) {
-            $resultXml = $this->_createConfigXml('@Magento/Cron/etc/crontab.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Cron:etc/crontab.xsd');
             $targetXml = $resultXml->addChild('group');
             $targetXml->addAttribute('id', 'default');
 
@@ -977,7 +1039,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->template->email)) {
-            $resultXml = $this->_createConfigXml('@Magento/Email/etc/email_templates.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Email:etc/email_templates.xsd');
 
             foreach ($xml->global->template->email->children() as $tplName => $tplNode) {
                 $targetNode = $resultXml->addChild('template');
@@ -1001,7 +1063,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Magento/Catalog/etc/catalog_attributes.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Catalog:etc/catalog_attributes.xsd');
 
         //TODO: other types?
         if (!empty($xml->global->sales->quote->item->product_attributes)) {
@@ -1025,7 +1087,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->fieldsets)) {
-            $resultXml = $this->_createConfigXml('@Framework/Object/etc/fieldset.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:Object/etc/fieldset.xsd');
             $targetXml = $resultXml->addChild('scope');
             $targetXml->addAttribute('id', 'global');
 
@@ -1055,7 +1117,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Magento/Sales/etc/sales.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/sales.xsd');
 
         if (!empty($xml->global->sales)) {
             foreach ($xml->global->sales->children() as $sectionName => $sectionNode) {
@@ -1100,7 +1162,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->pdf)) {
-            $resultXml = $this->_createConfigXml('@Magento/Sales/etc/pdf_file.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/pdf_file.xsd');
 
             $renderersXml = null;
 
@@ -1166,7 +1228,7 @@ class ConvertM1M2
         $xml = $this->_readFile($file);
 
         foreach ($xml->children() as $layoutName => $layoutNode) {
-            $resultXml = $this->_createConfigXml('@Framework/View/Layout/etc/page_configuration.xsd', 'page');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:View/Layout/etc/page_configuration.xsd', 'page');
             $headXml = $resultXml->addChild('head');
             $bodyXml = $resultXml->addChild('body');
             foreach ($layoutNode->children() as $nodeTag => $node) {
@@ -1244,7 +1306,7 @@ class ConvertM1M2
                 $nodeName = (string)$sourceXml['name'];
                 if (!empty($this->_layouts[$area]['blocks'][$nodeName])) {
                     $className = $this->_layouts[$area]['blocks'][$nodeName];
-                    if (is_subclass_of($className, 'Mage_Core_Block_Text_List')) {
+                    if (is_subclass_of($className, 'Mage_Core_Block_Text_List') || $nodeName === 'content') {
                         $targetChildXml = $targetXml->addChild('referenceContainer');
                     } else {
                         $targetChildXml = $targetXml->addChild('reference');
