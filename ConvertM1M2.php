@@ -1790,12 +1790,18 @@ class ConvertM1M2
                 $context = 'resourceModel';
             }
         }
+        $optionalArgs = false;
         if ($context) {
             if (!empty($this->_diDefaultArgs[$context])) {
                 foreach ($this->_diDefaultArgs[$context] as $var => $arg) {
-                    preg_match('#\$[A-Za-z0-9_]+#', $arg, $m);
+                    if (!preg_match('#(\$[A-Za-z0-9_]+)(\s*=)?#', $arg, $m)) {
+                        var_dump($arg, $m);
+                    }
                     $constructArgs[] = $arg;
-                    $constructParentArgs[] = $m[0];
+                    $constructParentArgs[] = $m[1];
+                    if (!empty($m[2])) {
+                        $optionalArgs = true;
+                    }
                 }
             }
             $contextMethod = '_convertDIContext' . ucfirst($context);
@@ -1820,7 +1826,7 @@ class ConvertM1M2
             $propertyLines[] = "{$pad}protected \$_{$var};";
             $propertyLines[] = "";
 
-            $constructArgs[] = "\\{$class} \${$var}";
+            $constructArgs[] = "\\{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
 
             $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
 
