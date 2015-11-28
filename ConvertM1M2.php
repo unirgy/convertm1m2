@@ -73,6 +73,20 @@ class ConvertM1M2
     // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
     protected $_replace;
 
+    protected $_diDefaultArgs = [
+        'controller' => [
+            '\Magento\Backend\App\Action\Context $context',
+        ],
+        'resourceModel' => [
+            '\Magento\Framework\Data\Collection\EntityFactoryInterface $entityFactory',
+            '\Psr\Log\LoggerInterface $logger',
+            '\Magento\Framework\Data\Collection\Db\FetchStrategyInterface $fetchStrategy',
+            '\Magento\Framework\Event\ManagerInterface $eventManager',
+            '\Magento\Framework\DB\Adapter\AdapterInterface $connection = null',
+            '\Magento\Framework\Model\ResourceModel\Db\AbstractDb $resource = null',
+        ],
+    ];
+
     protected function _getReplaceMaps()
     {
         return [
@@ -81,12 +95,15 @@ class ConvertM1M2
             ],
             'classes' => [
                 'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
+                'Mage_Core_Helper_' => 'Magento_Framework_App_Helper_',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
                 'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+                'Mage_Core_Model_Mysql4_Collection_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_Collection_AbstractCollection',
                 'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
+                'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
@@ -97,7 +114,6 @@ class ConvertM1M2
                 'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
                 'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
                 'Mage_Admin_' => 'Magento_Backend_',
-                'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_' => 'Magento_',
@@ -107,6 +123,7 @@ class ConvertM1M2
                 '_Resource_' => '_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
+                'Zend_Db' => 'Magento_Framework_Db',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
@@ -161,6 +178,11 @@ class ConvertM1M2
             'menu' => [
                 'sales' => 'Magento_Sales::sales',
                 'report' => 'Magento_Reports:report',
+            ],
+            'files' => [
+                '/Model/Mysql4/' => '/Model/ResourceModel/',
+                '/Model/Resource/' => '/Model/ResourceModel/',
+                '/Protected.php' => '/ProtectedCode.php',
             ],
         ];
     }
@@ -325,7 +347,9 @@ class ConvertM1M2
 
     protected function _readFile($filename, $expand = false)
     {
-        $this->_currentFile = [];
+        $this->_currentFile = [
+            'filename' => $filename,
+        ];
 
         if ($expand) {
             $filename = $this->_expandSourcePath($filename);
@@ -1526,6 +1550,8 @@ class ConvertM1M2
         $dir = $this->_expandSourcePath("@EXT/{$folder}");
         $files = $this->_findFilesRecursive($dir);
         $targetDir = $this->_expandOutputPath($folder);
+        $fromName = array_keys($this->_replace['files']);
+        $toName = array_values($this->_replace['files']);
         foreach ($files as $filename) {
             $contents = $this->_readFile("{$dir}/{$filename}");
             $targetFile = "{$targetDir}/{$filename}";
@@ -1536,8 +1562,7 @@ class ConvertM1M2
                 $contents = $this->_convertCodeContents($contents);
                 $contents = $this->_convertCodeObjectManagerToDI($contents);
                 $contents = $this->_convertNamespaceUse($contents);
-                $targetFile = str_replace(['/Model/Mysql4/', '/Model/Resource/'],
-                    ['/Model/ResourceModel/', '/Model/ResourceModel/'], $targetFile);
+                $targetFile = str_replace($fromName, $toName, $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
         }
@@ -1545,9 +1570,16 @@ class ConvertM1M2
 
     protected function _convertCodeContents($contents, $mode = 'php')
     {
-        $this->_currentFile = [];
+        $this->_currentFile = [
+            'filename' => $this->_currentFile['filename'],
+        ];
 
-        $this->_currentFile['nl'] = preg_match('#\r\n#', $contents) ? "\r\n" : "\n";
+
+        if (preg_match('#(\\r\\n|\\r|\\n)#', $contents, $m)) {
+            $this->_currentFile['nl'] = $m[0];
+        } else {
+            $this->_currentFile['nl'] = "\r\n";
+        }
 
         // Replace code snippets
         $codeTr = $this->_replace['code'];
@@ -1605,11 +1637,18 @@ class ConvertM1M2
     protected function _convertCodeContentsPhpMode($contents)
     {
         // Replace $this->_init() in models and resources with class names and table names
-        $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"]([,\)]))#', function ($m) {
-            if ($m[4] === ')') {
-                return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
+        $contents = preg_replace_callback('#(\$this->_init\([\'"])(([A-Za-z0-9_]+)/([A-Za-z0-9_]+))([\'"])#', function ($m) {
+            $filename = $this->_currentFile['filename'];
+            if (preg_match('#/Model/(Mysql4|Resource)/.*/Collection\.php$#', $filename)) {
+                $model = $this->_getClassName('models', $m[2], true);
+                $resModel = $this->_getClassName('models', $m[3] . '_mysql4/' . $m[4], true);
+                return $m[1] . $model . $m[5] . ', ' . $m[5] . $resModel . $m[5];
+            } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
+                return $m[1] . str_replace('/', '_', $m[2]) . $m[5]; //TODO: try to figure out original table name
+            } elseif (preg_match('#/Model/#', $filename)) {
+                return $m[1] . $this->_getClassName('models', $m[3] . '_mysql4/' . $m[4], true) . $m[5];
             } else {
-                return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
+                return $m[0];
             }
         }, $contents);
 
@@ -1743,7 +1782,22 @@ class ConvertM1M2
         $pad = '    ';
         $declared = [];
 
+        if (!$context) {
+            $filename = $this->_currentFile['filename'];
+            if (preg_match('#Controller\.php$#', $filename)) {
+                $context = 'controller';
+            } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
+                $context = 'resourceModel';
+            }
+        }
         if ($context) {
+            if (!empty($this->_diDefaultArgs[$context])) {
+                foreach ($this->_diDefaultArgs[$context] as $var => $arg) {
+                    preg_match('#\$[A-Za-z0-9_]+#', $arg, $m);
+                    $constructArgs[] = $arg;
+                    $constructParentArgs[] = $m[0];
+                }
+            }
             $contextMethod = '_convertDIContext' . ucfirst($context);
             if (method_exists($this, $contextMethod)) {
                 $this->{$contextMethod}($constructArgs, $constructParentArgs);
@@ -1791,12 +1845,6 @@ class ConvertM1M2
         $contents = preg_replace($classStartRe, $classStartWith, $contents);
 
         return $contents;
-    }
-
-    protected function _convertDIContextController(array &$constructArgs, array &$constructParentArgs)
-    {
-        $constructArgs[] = '\Magento\Backend\App\Action\Context $context';
-        $constructParentArgs[] = '$context';
     }
 
     protected function _convertNamespaceUse($contents)
@@ -1887,7 +1935,7 @@ class ConvertM1M2
 
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
-        $contents = $this->_convertCodeObjectManagerToDI($contents, 'controller');
+        $contents = $this->_convertCodeObjectManagerToDI($contents);
         $contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetFile, $contents);
@@ -1909,8 +1957,8 @@ class ConvertM1M2
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
-            $classContents = $this->_convertCodeObjectManagerToDI($classContents, 'controller');
-            $contents = $this->_convertNamespaceUse($contents);
+            $classContents = $this->_convertCodeObjectManagerToDI($classContents);
+            $classContents = $this->_convertNamespaceUse($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
