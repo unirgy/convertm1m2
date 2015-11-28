@@ -46,7 +46,7 @@ $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 $converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
 $converter->convertAllExtensions($stage);
-$converter->log('ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
+$converter->log('[INFO] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
 
 class ConvertM1M2
@@ -275,7 +275,7 @@ class ConvertM1M2
             $this->_collectCoreModulesLayouts();
         }
 
-        $this->log('')->log("LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
+        $this->log('')->log("[INFO] LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
 
         $extDirs = glob($this->_env['source_dir'] . '/*', GLOB_ONLYDIR);
         foreach ($extDirs as $extDir) {
@@ -304,7 +304,7 @@ class ConvertM1M2
     {
         $this->_autoloadMode = 'm1';
 
-        $this->log("EXTENSION: {$extName}");
+        $this->log("[INFO] EXTENSION: {$extName}");
 
         $this->_env['ext_name'] = $extName;
         $folders = glob($this->_env['mage1_dir'] . '/app/code/*/' . str_replace('_', '/', $extName));
@@ -328,7 +328,7 @@ class ConvertM1M2
         $this->_convertAllI18n();
         $this->_convertAllOtherFiles();
 
-        $this->log("FINISHED: {$extName}")->log('');
+        $this->log("[INFO] FINISHED: {$extName}")->log('');
 
         return $this;
     }
@@ -342,11 +342,11 @@ class ConvertM1M2
             echo "\n";
         }
         if (!empty($msg)) {
-            $error = preg_match('#^ERROR:#', $msg);
+            $error = preg_match('#\[ERROR\]#', $msg);
             if ('cli' !== PHP_SAPI && $error) {
                 echo '<span style="color:red">';
             }
-            echo date("Y-m-d H:i:s") . ' ' . $msg;
+            echo '[' . date("Y-m-d H:i:s") . ']' . $msg;
             if ('cli' !== PHP_SAPI && $error) {
                 echo '</span>';
             }
@@ -509,7 +509,7 @@ class ConvertM1M2
 
     protected function _collectCoreModulesConfigs()
     {
-        $this->log("COLLECTING M1 CONFIGURATION...")->log('');
+        $this->log("[INFO] COLLECTING M1 CONFIGURATION...")->log('');
         $configFiles = glob($this->_env['mage1_dir'] . '/app/code/*/*/*/etc/config.xml');
         foreach ($configFiles as $file) {
             $xml = simpledom_load_file($file);
@@ -532,7 +532,7 @@ class ConvertM1M2
 
     protected function _collectCoreModulesLayouts()
     {
-        $this->log("COLLECTING M1 LAYOUTS...")->log('');
+        $this->log("[INFO] COLLECTING M1 LAYOUTS...")->log('');
         $layoutFiles = glob($this->_env['mage1_dir'] . '/app/design/*/*/*/layout/*.xml');
         foreach ($layoutFiles as $file) {
             preg_match('#/app/design/([^/]+)/([^/]+/[^/]+)#', $file, $m);
@@ -569,7 +569,7 @@ class ConvertM1M2
                 }
             }
             if (empty($this->_aliases[$type][$moduleKey])) {
-                $this->log('ERROR: Unknown module key: ' . $type . ' :: ' . $moduleKey);
+                $this->log('[ERROR] Unknown module key: ' . $type . ' :: ' . $moduleKey);
                 return 'UNKNOWN\\' . $moduleKey . '\\' . $classKey;
             }
         }
@@ -970,7 +970,7 @@ class ConvertM1M2
                 if (!empty($this->_aliases['modules'][$moduleName])) {
                     $attr['module'] = $this->_aliases['modules'][$moduleName];
                 } else {
-                    $this->log('ERROR: Unknown module alias: ' . $moduleName);
+                    $this->log('[ERROR] Unknown module alias: ' . $moduleName);
                 }
             }
             if ($parent) {
@@ -1665,16 +1665,23 @@ class ConvertM1M2
     protected function _convertCodeContentsPhpMode($contents)
     {
         // Replace $this->_init() in models and resources with class names and table names
-        $contents = preg_replace_callback('#(\$this->_init\([\'"])(([A-Za-z0-9_]+)/([A-Za-z0-9_]+))([\'"])#', function ($m) {
+        $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"])#', function ($m) {
             $filename = $this->_currentFile['filename'];
+            $cls = explode('/', $m[2]);
+            if (!empty($this->_aliases['models']["{$cls[0]}_resource"])) {
+                $resKey = "{$cls[0]}_resource/{$cls[1]}";
+            } elseif (!empty($this->_aliases['models']["{$cls[0]}_mysql4"])) {
+                $resKey = "{$cls[0]}_mysql4/{$cls[1]}";
+            }
             if (preg_match('#/Model/(Mysql4|Resource)/.*/Collection\.php$#', $filename)) {
                 $model = $this->_getClassName('models', $m[2], true);
-                $resModel = $this->_getClassName('models', $m[3] . '_mysql4/' . $m[4], true);
-                return $m[1] . $model . $m[5] . ', ' . $m[5] . $resModel . $m[5];
+                $resModel = $this->_getClassName('models', $resKey, true);
+                return $m[1] . $model . $m[3] . ', ' . $m[3] . $resModel . $m[3];
             } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
-                return $m[1] . str_replace('/', '_', $m[2]) . $m[5]; //TODO: try to figure out original table name
+                return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
             } elseif (preg_match('#/Model/#', $filename)) {
-                return $m[1] . $this->_getClassName('models', $m[3] . '_mysql4/' . $m[4], true) . $m[5];
+                $resModel = $this->_getClassName('models', $resKey, true);
+                return $m[1] . $resModel . $m[3];
             } else {
                 return $m[0];
             }
@@ -2022,7 +2029,7 @@ class ConvertM1M2
     {
         $this->_autoloadMode = 'm2';
 
-        $this->log("EXTENSION (STAGE 2): {$extName}");
+        $this->log("[INFO] EXTENSION (STAGE 2): {$extName}");
 
         $extDir = str_replace('_', '/', $extName);
 
@@ -2033,7 +2040,7 @@ class ConvertM1M2
             }
             $class = str_replace(['/', '.php'], ['\\', ''], "{$extDir}/{$file}");
             if (!class_exists($class)) {
-                $this->log('ERROR: Class not found: ' . $class);
+                $this->log('[ERROR] Class not found: ' . $class);
             }
         }
     }
