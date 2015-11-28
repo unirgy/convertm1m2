@@ -194,7 +194,7 @@ class ConvertM1M2
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
                 '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
                 '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
-                '#Mage::getConfig\(\)->getNode\(([^)]+)\)#' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \'default\')',
+                '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -1937,6 +1937,7 @@ class ConvertM1M2
             $l2 = strlen($s2);
             return $l1 < $l2 ? 1 : ($l1 > $l2 ? -1 : 0);
         });
+        sort($useLines);
         $contents = str_replace(array_keys($mapByClass), array_values($mapByClass), $contents);
         $contents = str_replace($namespaceLine, $namespaceLine . $nl . $nl . join($nl, $useLines), $contents);
         return $contents;
