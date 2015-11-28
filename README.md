@@ -2,12 +2,6 @@
 
 ## Background
 
-Magento 2 Merchant Stable is right around the corner, and there's a growing urgency for extension developers to convert 
-their existing Magento 1.x extensions to Magento 2.0.
-
-We can't wait until the last minute, because while we don't know how much it will take us to convert, we do know it will 
-take long time.
-
 The purpose of this script is to automate as much as possible the initial conversion of a Magento 1 extension, and allow 
 developers to have more time for tasks that can not be automated, such as:
   
@@ -15,6 +9,8 @@ developers to have more time for tasks that can not be automated, such as:
   * JS/CSS conversion to jQuery and new M2 themes
   * Code optimizations and logic improvements
   * etc.
+
+> NOTE: this script will not produce fully working code. A developer will have to manually go over each resulting file and test/fix it by hand.
   
 ## Current status
 
