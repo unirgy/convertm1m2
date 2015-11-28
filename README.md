@@ -32,12 +32,12 @@ developers to have more time for tasks that can not be automated, such as:
     * Basic class name conversion to new locations in M2
     * String translations to use only `__()`
     * Use constructor Dependency Injection
+    * `use` classes
 
 ### To be implemented:
 
   * **Migration Setup** (not sure if possible to automate at all)
   * **Advanced PHP code conversion**
-    * `use` classes
     * Full list of known class name, ACL keys and menu keys conversions
     
 ### Partial list of known unknowns:
