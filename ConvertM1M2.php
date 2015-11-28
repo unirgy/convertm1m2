@@ -77,6 +77,9 @@ class ConvertM1M2
         'controller' => [
             '\Magento\Backend\App\Action\Context $context',
         ],
+        'helper' => [
+            '\Magento\Backend\App\Action\Context $context',
+        ],
         'resourceModel' => [
             '\Magento\Framework\Data\Collection\EntityFactoryInterface $entityFactory',
             '\Psr\Log\LoggerInterface $logger',
@@ -1788,6 +1791,8 @@ class ConvertM1M2
                 $context = 'controller';
             } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
                 $context = 'resourceModel';
+            } elseif (preg_match('#/Helper/#', $filename)) {
+                $context = 'helper';
             }
         }
         $optionalArgs = false;
