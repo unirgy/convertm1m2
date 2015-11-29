@@ -46,7 +46,7 @@ $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 $converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
 $converter->convertAllExtensions($stage);
-$converter->log('[INFO] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
+$converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
 
 class ConvertM1M2
@@ -328,28 +328,36 @@ class ConvertM1M2
         $this->_convertAllI18n();
         $this->_convertAllOtherFiles();
 
-        $this->log("[INFO] FINISHED: {$extName}")->log('');
+        $this->log("[SUCCESS] FINISHED: {$extName}")->log('');
 
         return $this;
     }
 
     public function log($msg, $continue = false)
     {
+        static $htmlColors = [
+            'ERROR'   => 'red',
+            'WARN'    => 'orange',
+            'INFO'    => 'black',
+            'DEBUG'   => 'gray',
+            'SUCCESS' => 'green',
+        ];
         if (!is_scalar($msg)) {
             $msg = print_r($msg, 1);
         }
         if (!$continue) {
             echo "\n";
         }
-        if (!empty($msg)) {
-            $error = preg_match('#\[ERROR\]#', $msg);
-            if ('cli' !== PHP_SAPI && $error) {
-                echo '<span style="color:red">';
-            }
+        if (empty($msg)) {
+            return $this;
+        }
+        if ('cli' === PHP_SAPI) {
             echo '[' . date("Y-m-d H:i:s") . ']' . $msg;
-            if ('cli' !== PHP_SAPI && $error) {
-                echo '</span>';
-            }
+        } else {
+            preg_match('#\[([A-Z]+)\]#', $msg, $type);
+            echo '<span style="color:' . $htmlColors[$type[1]] . '">';
+            echo '[' . date("Y-m-d H:i:s") . ']' . $msg;
+            echo '</span>';
         }
 
         return $this;
@@ -569,7 +577,7 @@ class ConvertM1M2
                 }
             }
             if (empty($this->_aliases[$type][$moduleKey])) {
-                $this->log('[ERROR] Unknown module key: ' . $type . ' :: ' . $moduleKey);
+                $this->log('[WARN] Unknown module key: ' . $type . ' :: ' . $moduleKey);
                 return 'UNKNOWN\\' . $moduleKey . '\\' . $classKey;
             }
         }
@@ -1668,20 +1676,32 @@ class ConvertM1M2
         $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"])#', function ($m) {
             $filename = $this->_currentFile['filename'];
             $cls = explode('/', $m[2]);
-            if (!empty($this->_aliases['models']["{$cls[0]}_resource"])) {
+            if (!empty($this->_aliases['models']["{$cls[0]}_resource"]) && !empty($cls[1])) {
                 $resKey = "{$cls[0]}_resource/{$cls[1]}";
-            } elseif (!empty($this->_aliases['models']["{$cls[0]}_mysql4"])) {
+            } elseif (!empty($this->_aliases['models']["{$cls[0]}_mysql4"]) && !empty($cls[1])) {
                 $resKey = "{$cls[0]}_mysql4/{$cls[1]}";
+            } else {
+                $resKey = false;
             }
             if (preg_match('#/Model/(Mysql4|Resource)/.*/Collection\.php$#', $filename)) {
-                $model = $this->_getClassName('models', $m[2], true);
-                $resModel = $this->_getClassName('models', $resKey, true);
-                return $m[1] . $model . $m[3] . ', ' . $m[3] . $resModel . $m[3];
+                if ($resKey) {
+                    $model    = $this->_getClassName('models', $m[2], true);
+                    $resModel = $this->_getClassName('models', $resKey, true);
+                    return $m[1] . $model . $m[3] . ', ' . $m[3] . $resModel . $m[3];
+                } else {
+                    $this->log("[WARN] No resource model for {$m[2]}");
+                    return $m[0];
+                }
             } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
                 return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
             } elseif (preg_match('#/Model/#', $filename)) {
-                $resModel = $this->_getClassName('models', $resKey, true);
-                return $m[1] . $resModel . $m[3];
+                if ($resKey) {
+                    $resModel = $this->_getClassName('models', $resKey, true);
+                    return $m[1] . $resModel . $m[3];
+                } else {
+                    $this->log("[WARN] No resource model for {$m[2]}");
+                    return $m[0];
+                }
             } else {
                 return $m[0];
             }
