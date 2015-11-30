@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-*/
+ */
 
 
 if (PHP_SAPI === 'cli') {
@@ -46,12 +46,12 @@ $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 $converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
 $converter->convertAllExtensions($stage);
-$converter->log('ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
+$converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
 
 class ConvertM1M2
 {
-    
+
     protected $_env = [];
 
     protected $_fileCache = [];
@@ -64,8 +64,8 @@ class ConvertM1M2
 
     protected $_schemas = [
         '@XSI' => 'http://www.w3.org/2001/XMLSchema-instance',
-        '@Framework/' => '../../../../../lib/internal/Magento/Framework/',
-        '@Magento/' => '../../../Magento/',
+        '@Framework/' => '../../../../../lib/internal/Magento/Framework/', //deprecated
+        '@Magento/' => '../../../Magento/', //deprecated
     ];
 
     const OBJ_MGR = '\Magento\Framework\App\ObjectManager::getInstance()->get';
@@ -73,32 +73,85 @@ class ConvertM1M2
     // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
     protected $_replace;
 
+    protected $_diDefaultArgs = [
+        'controller' => [
+            '\Magento\Backend\App\Action\Context $context',
+        ],
+        'helper' => [
+            '\Magento\Backend\App\Action\Context $context',
+        ],
+        'resourceModel' => [
+            '\Magento\Framework\Data\Collection\EntityFactoryInterface $entityFactory',
+            '\Psr\Log\LoggerInterface $logger',
+            '\Magento\Framework\Data\Collection\Db\FetchStrategyInterface $fetchStrategy',
+            '\Magento\Framework\Event\ManagerInterface $eventManager',
+            '\Magento\Framework\DB\Adapter\AdapterInterface $connection = null',
+            '\Magento\Framework\Model\ResourceModel\Db\AbstractDb $resource = null',
+        ],
+    ];
+
+    protected $_reservedWordsRe = '#^(
+(a(bstract|nd|rray|s))|
+(c(a(llable|se|tch)|l(ass|one)|on(st|tinue)))|
+(d(e(clare|fault)|ie|o))|
+(e(cho|lse(if)?|mpty|nd(declare|for(each)?|if|switch|while)|val|x(it|tends)))|
+(f(inal|or(each)?|unction))|
+(g(lobal|oto))|
+(i(f|mplements|n(clude(_once)?|st(anceof|eadof)|terface)|sset))|
+(map)|
+(n(amespace|ew))|
+(p(r(i(nt|vate)|otected)|ublic))|
+(re(quire(_once)?|turn))|
+(s(tatic|witch))|
+(t(hrow|r(ait|y)))|
+(u(nset|se))|
+(__halt_compiler|break|list|(x)?or|var|while)
+)$#ix';
+
     protected function _getReplaceMaps()
     {
         return [
+            'modules' => [
+                'Mage_Adminhtml' => 'Magento_Backend',
+            ],
             'classes' => [
                 'Mage_Core_Helper_Abstract' => 'Magento_Framework_App_Helper_AbstractHelper',
+                'Mage_Core_Helper_Data' => 'Magento_Framework_App_Helper_AbstractHelper',
+                'Mage_Core_Helper_' => 'Magento_Framework_App_Helper_',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
                 'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+                'Mage_Core_Model_Mysql4_Collection_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_Collection_AbstractCollection',
+                'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
+                'Mage_Core_Model_Url_Rewrite' => 'Magento_UrlRewrite_Model_UrlRewrite',
+                'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
+                'Mage_Core_Model_Mysql4_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
+                'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
+                'Mage_Adminhtml_Block_System_Config_' => 'Magento_Config_Block_System_Config_',
+                'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
+                'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
+                'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
                 'Mage_Adminhtml_' => 'Magento_Backend_',
                 'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
                 'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
                 'Mage_Admin_' => 'Magento_Backend_',
-                'Mage_Core_' => 'Magento_Framework_',
+                'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
+                'Varien_Object' => 'Magento_Framework_DataObject',
                 'Varien_' => 'Magento_Framework_',
                 '_Mysql4_' => '_ResourceModel_',
                 '_Resource_' => '_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
-                'Zend_Log' => 'Zend_Logger',
+                'Zend_Log' => 'Zend_Log_Logger',
+                'Zend_Db' => 'Magento_Framework_Db',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
@@ -127,8 +180,13 @@ class ConvertM1M2
                 'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
                 'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
                 'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
+                'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
                 'Mage::throwException(' => 'throw new Exception(',
                 ' extends Exception' => ' extends \Exception',
+                '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
+                '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
+                '$this->_redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
+                '$this->_forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
                 //TODO: Need help with:
                 #'Mage::app()->getConfig()->getNode(' => '',
             ],
@@ -136,17 +194,23 @@ class ConvertM1M2
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
                 '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
                 '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
+                '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
                 'admin/sales' => 'Magento_Sales:sales',
                 'admin/reports' => 'Magento_Reports:report',
                 'admin/system' => 'Magento_Backend::stores',
-                'admin/system/config' => 'Magento_Backend::stores_settings',
+                'admin/system/config' => ['Magento_Backend::stores_settings', 'Magento_Config::config'],
             ],
             'menu' => [
                 'sales' => 'Magento_Sales::sales',
                 'report' => 'Magento_Reports:report',
+            ],
+            'files' => [
+                '/Model/Mysql4/' => '/Model/ResourceModel/',
+                '/Model/Resource/' => '/Model/ResourceModel/',
+                '/Protected.php' => '/ProtectedCode.php',
             ],
         ];
     }
@@ -211,7 +275,7 @@ class ConvertM1M2
             $this->_collectCoreModulesLayouts();
         }
 
-        $this->log('')->log("LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
+        $this->log('')->log("[INFO] LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
 
         $extDirs = glob($this->_env['source_dir'] . '/*', GLOB_ONLYDIR);
         foreach ($extDirs as $extDir) {
@@ -240,7 +304,7 @@ class ConvertM1M2
     {
         $this->_autoloadMode = 'm1';
 
-        $this->log("EXTENSION: {$extName}");
+        $this->log("[INFO] EXTENSION: {$extName}");
 
         $this->_env['ext_name'] = $extName;
         $folders = glob($this->_env['mage1_dir'] . '/app/code/*/' . str_replace('_', '/', $extName));
@@ -255,6 +319,7 @@ class ConvertM1M2
 
         $this->_fileCache = [];
 
+        $this->_convertGenerateMetaFiles();
         $this->_convertAllConfigs();
         $this->_convertAllControllers();
         $this->_convertAllMigrations();
@@ -264,28 +329,36 @@ class ConvertM1M2
         $this->_convertAllI18n();
         $this->_convertAllOtherFiles();
 
-        $this->log("FINISHED: {$extName}")->log('');
+        $this->log("[SUCCESS] FINISHED: {$extName}")->log('');
 
         return $this;
     }
 
     public function log($msg, $continue = false)
     {
+        static $htmlColors = [
+            'ERROR'   => 'red',
+            'WARN'    => 'orange',
+            'INFO'    => 'black',
+            'DEBUG'   => 'gray',
+            'SUCCESS' => 'green',
+        ];
         if (!is_scalar($msg)) {
             $msg = print_r($msg, 1);
         }
         if (!$continue) {
             echo "\n";
         }
-        if (!empty($msg)) {
-            $error = preg_match('#^ERROR:#', $msg);
-            if ('cli' !== PHP_SAPI && $error) {
-                echo '<span style="color:red">';
-            }
-            echo date("Y-m-d H:i:s") . ' ' . $msg;
-            if ('cli' !== PHP_SAPI && $error) {
-                echo '</span>';
-            }
+        if (empty($msg)) {
+            return $this;
+        }
+        if ('cli' === PHP_SAPI) {
+            echo '[' . date("Y-m-d H:i:s") . ']' . $msg;
+        } else {
+            preg_match('#\[([A-Z]+)\]#', $msg, $type);
+            echo '<span style="color:' . $htmlColors[$type[1]] . '">';
+            echo '[' . date("Y-m-d H:i:s") . ']' . $msg;
+            echo '</span>';
         }
 
         return $this;
@@ -311,7 +384,9 @@ class ConvertM1M2
 
     protected function _readFile($filename, $expand = false)
     {
-        $this->_currentFile = [];
+        $this->_currentFile = [
+            'filename' => $filename,
+        ];
 
         if ($expand) {
             $filename = $this->_expandSourcePath($filename);
@@ -404,22 +479,22 @@ class ConvertM1M2
         if (file_exists($filename)) {
             unlink($filename);
         }
-/*
-        $dir = dirname($filename);
-        if (file_exists($dir)) {
-            $empty = true;
-            $dirFiles = glob($dir . '/*');
-            foreach ($dirFiles as $file) {
-                if (!preg_match('#(^|/)\.+$#', $file)) {
-                    $empty = false;
-                    break;
+        /*
+                $dir = dirname($filename);
+                if (file_exists($dir)) {
+                    $empty = true;
+                    $dirFiles = glob($dir . '/*');
+                    foreach ($dirFiles as $file) {
+                        if (!preg_match('#(^|/)\.+$#', $file)) {
+                            $empty = false;
+                            break;
+                        }
+                    }
+                    if ($empty) {
+                        unlink($dir);
+                    }
                 }
-            }
-            if ($empty) {
-                unlink($dir);
-            }
-        }
-*/
+        */
     }
 
     protected function _findFilesRecursive($dir, $expand = false)
@@ -443,7 +518,7 @@ class ConvertM1M2
 
     protected function _collectCoreModulesConfigs()
     {
-        $this->log("COLLECTING M1 CONFIGURATION...")->log('');
+        $this->log("[INFO] COLLECTING M1 CONFIGURATION...")->log('');
         $configFiles = glob($this->_env['mage1_dir'] . '/app/code/*/*/*/etc/config.xml');
         foreach ($configFiles as $file) {
             $xml = simpledom_load_file($file);
@@ -466,7 +541,7 @@ class ConvertM1M2
 
     protected function _collectCoreModulesLayouts()
     {
-        $this->log("COLLECTING M1 LAYOUTS...")->log('');
+        $this->log("[INFO] COLLECTING M1 LAYOUTS...")->log('');
         $layoutFiles = glob($this->_env['mage1_dir'] . '/app/design/*/*/*/layout/*.xml');
         foreach ($layoutFiles as $file) {
             preg_match('#/app/design/([^/]+)/([^/]+/[^/]+)#', $file, $m);
@@ -503,7 +578,7 @@ class ConvertM1M2
                 }
             }
             if (empty($this->_aliases[$type][$moduleKey])) {
-                $this->log('ERROR: Unknown module key: ' . $type . ' :: ' . $moduleKey);
+                $this->log('[WARN] Unknown module key: ' . $type . ' :: ' . $moduleKey);
                 return 'UNKNOWN\\' . $moduleKey . '\\' . $classKey;
             }
         }
@@ -524,6 +599,67 @@ class ConvertM1M2
 
     ///////////////////////////////////////////////////////////
 
+    protected function _convertGenerateMetaFiles()
+    {
+        $this->_convertGenerateComposerFile();
+        $this->_convertGenerateRegistrationFile();
+    }
+
+    protected function _convertGenerateComposerFile()
+    {
+        $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
+        $extName = $this->_env['ext_name'];
+        $version = !empty($xml1->modules->{$extName}->version) ? (string)$xml1->modules->{$extName}->version : '0.0.1';
+
+        $data = [
+            'name' => str_replace('_', '/', $extName),
+            'description' => '',
+            'require' => [
+                'php' => '~5.5.0|~5.6.0',
+            ],
+            'type' => 'magento2-module',
+            'version' => $version,
+            'license' => [
+                'Proprietary'
+            ],
+            'autoload' => [
+                'files' => [
+                    'registration.php',
+                ],
+                'psr-4' => [
+                    str_replace('_', '\\', $extName) . '\\' => '',
+                ],
+            ],
+            'extra' => [
+                'map' => [
+                    [
+                        '*',
+                        str_replace('_', '/', $extName)
+                    ]
+                ]
+            ]
+        ];
+        $this->_writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT), true);
+    }
+
+    protected function _convertGenerateRegistrationFile()
+    {
+        $regCode = <<<EOT
+<?php
+
+\Magento\Framework\Component\ComponentRegistrar::register(
+    \Magento\Framework\Component\ComponentRegistrar::MODULE,
+    '{$this->_env['ext_name']}',
+    __DIR__
+);
+
+EOT;
+
+        $this->_writeFile('registration.php', $regCode, true);
+    }
+
+    ///////////////////////////////////////////////////////////
+
     protected function _convertAllConfigs()
     {
         $this->_convertConfigModule();
@@ -534,7 +670,8 @@ class ConvertM1M2
         $this->_convertConfigFrontendDI();
         $this->_convertConfigAdminhtmlDI();
         $this->_convertConfigEvents();
-        $this->_convertConfigRoutes();
+        $this->_convertConfigRoutesFrontend();
+        $this->_convertConfigRoutesAdmin();
         $this->_convertConfigMenu();
         $this->_convertConfigSystem();
         $this->_convertConfigCrontab();
@@ -546,10 +683,15 @@ class ConvertM1M2
         $this->_convertConfigWidget();
     }
 
+    /**
+     * @param string $schemaPath
+     * @param string $rootTagName
+     * @return SimpleDOM
+     */
     protected function _createConfigXml($schemaPath, $rootTagName = 'config')
     {
         $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
-        return simpledom_load_string('<?xml version="1.0"?>
+        return simpledom_load_string('<?xml version="1.0" encoding="UTF-8"?>
 <' . $rootTagName . ' xmlns:xsi="' . $this->_schemas['@XSI'] . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
 </' . $rootTagName . '>');
     }
@@ -560,7 +702,7 @@ class ConvertM1M2
         $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
         $xml2 = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/Module/etc/module.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:Module/etc/module.xsd');
         $targetXml = $resultXml->addChild('module');
         $targetXml->addAttribute('name', $extName);
         if (!empty($xml1->modules->{$extName}->version)) {
@@ -568,7 +710,10 @@ class ConvertM1M2
         }
         if (!empty($xml2->modules->{$extName}->depends)) {
             $sequenceXml = $targetXml->addChild('sequence');
+            $from = array_keys($this->_replace['modules']);
+            $to = array_values($this->_replace['modules']);
             foreach ($xml2->modules->{$extName}->depends->children() as $depName => $_) {
+                $depName = str_replace($from, $to, $depName);
                 $sequenceXml->addChild('module')->addAttribute('name', $depName);
             }
         }
@@ -578,7 +723,7 @@ class ConvertM1M2
 
     protected function _convertConfigDefaults()
     {
-        $resultXml = $this->_createConfigXml('@Magento/Store/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Store:etc/config.xsd');
 
         $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->default)) {
@@ -609,15 +754,15 @@ class ConvertM1M2
 
     protected function _convertConfigAcl()
     {
-        $resultXml = $this->_createConfigXml('@Framework/Acl/etc/acl.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:Acl/etc/acl.xsd');
         $targetXml = $resultXml->addChild('acl')->addChild('resources');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml");
+        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->acl)) {
             $this->_convertConfigAclRecursive($xml1->adminhtml->acl->resources, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml");
+        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
             $this->_convertConfigAclRecursive($xml2->acl->resources, $targetXml);
         }
@@ -634,7 +779,16 @@ class ConvertM1M2
         foreach ($sourceXml->children() as $key => $sourceNode) {
             $attr = [];
             if (!empty($this->_replace['acl_keys'][$path . $key])) {
-                $attr['id'] = $this->_replace['acl_keys'][$path . $key];
+                $aclId = $this->_replace['acl_keys'][$path . $key];
+                if (is_array($aclId)) {
+                    for ($i = 0, $l = sizeof($aclId) - 1; $i < $l; $i++) {
+                        $targetXml = $targetXml->addChild('resource');
+                        $targetXml->addAttribute('id', $aclId[$i]);
+                    }
+                    $attr['id'] = $aclId[$i];
+                } else {
+                    $attr['id'] = $aclId;
+                }
             } else {
                 $attr['id'] = $this->_env['ext_name'] . ':' . $key;
             }
@@ -662,7 +816,7 @@ class ConvertM1M2
 
         if (!empty($xml->global->resources)) {
 
-            $resultXml = $this->_createConfigXml('@Framework/App/etc/resources.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/resources.xsd');
 
             foreach ($xml->global->resources->children() as $resKey => $resNode) {
                 if (empty($resNode->connection->use)) {
@@ -683,7 +837,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/ObjectManager/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         foreach (['models', 'helpers', 'blocks'] as $type) {
             if (empty($xml->global->{$type})) {
@@ -714,7 +868,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Framework/ObjectManager/etc/config.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         if (!empty($xml->frontend->secure_url)) {
             $n1 = $resultXml->addChild('type');
@@ -750,7 +904,7 @@ class ConvertM1M2
             $xmlFilename = 'etc/' . $areaDir . 'events.xml';
 
             if (!empty($xml->{$area}->events)) {
-                $resultXml = $this->_createConfigXml('@Framework/Event/etc/events.xsd');
+                $resultXml = $this->_createConfigXml('urn:magento:framework:Event/etc/events.xsd');
 
                 foreach ($xml->{$area}->events->children() as $eventName => $eventNode) {
                     $targetEventNode = $resultXml->addChild('event');
@@ -772,55 +926,94 @@ class ConvertM1M2
         }
     }
 
-    protected function _convertConfigRoutes()
+    protected function _convertConfigRoutesFrontend()
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        foreach (['frontend' => 'frontend/', 'admin' => 'adminhtml/'] as $area => $areaDir) {
-            $xmlFilename = 'etc/' . $areaDir . 'routes.xml';
+        $xmlFilename = 'etc/frontend/routes.xml';
 
-            if (!empty($xml->{$area}->routers)) {
-                $resultXml = $this->_createConfigXml('@Framework/App/etc/routes.xsd');
+        if (!empty($xml->frontend->routers)) {
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
 
-                $targetRouters = [];
-                foreach ($xml->{$area}->routers->children() as $routeName => $routeNode) {
-                    $routerName = (string)$routeNode->use;
-                    if (empty($targetRouters[$routerName])) {
-                        $targetRouters[$routerName] = $resultXml->addChild('router');
-                        $targetRouters[$routerName]->addAttribute('id', $routerName);
-                    }
-                    $targetRouteNode = $targetRouters[$routerName]->addChild('route');
-                    $targetRouteNode->addAttribute('id', $routeName);
-                    $targetRouteNode->addAttribute('frontName', (string)$routeNode->args->frontName);
-                    $targetRouteNode->addChild('module')->addAttribute('name', (string)$routeNode->args->module);
+            $targetRouters = [];
+            foreach ($xml->frontend->routers->children() as $routeName => $routeNode) {
+                $routerName = (string)$routeNode->use;
+                if (empty($targetRouters[$routerName])) {
+                    $targetRouters[$routerName] = $resultXml->addChild('router');
+                    $targetRouters[$routerName]->addAttribute('id', $routerName);
                 }
-
-                $this->_writeFile($xmlFilename, $resultXml, true);
-            } else {
-                $this->_deleteFile($xmlFilename, true);
+                $targetRouteNode = $targetRouters[$routerName]->addChild('route');
+                $targetRouteNode->addAttribute('id', $routeName);
+                $targetRouteNode->addAttribute('frontName', (string)$routeNode->args->frontName);
+                $targetRouteNode->addChild('module')->addAttribute('name', (string)$routeNode->args->module);
             }
+            $this->_writeFile($xmlFilename, $resultXml, true);
+        } else {
+            $this->_deleteFile($xmlFilename, true);
+        }
+    }
+
+    protected function _convertConfigRoutesAdmin()
+    {
+        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+
+        $xmlFilename = 'etc/adminhtml/routes.xml';
+
+        if (!empty($xml->admin->routers->adminhtml->args->modules)) {
+            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
+
+            $routerName = 'admin';
+            $targetRouters = [];
+            $moduleFrom = array_keys($this->_replace['modules']);
+            $moduleTo = array_values($this->_replace['modules']);
+            foreach ($xml->admin->routers->adminhtml->args->modules->children() as $routeName => $routeNode) {
+                if (empty($targetRouters[$routerName])) {
+                    $targetRouters[$routerName] = $resultXml->addChild('router');
+                    $targetRouters[$routerName]->addAttribute('id', $routerName);
+                }
+                $routeId = preg_replace('#admin$#', '', $routeName);
+                $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode);
+
+                $targetRouteNode = $targetRouters[$routerName]->addChild('route');
+                $targetRouteNode->addAttribute('id', $routeId);
+                $targetRouteNode->addAttribute('frontName', $routeId);
+                $module = $targetRouteNode->addChild('module');
+                $module->addAttribute('name', $moduleName);
+                if (!empty($routeNode['before'])) {
+                    $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode['before']);
+                    $module->addAttribute('before', $moduleName);
+                }
+                if (!empty($routeNode['after'])) {
+                    $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode['after']);
+                    $module->addAttribute('after', $moduleName);
+                }
+            }
+
+            $this->_writeFile($xmlFilename, $resultXml, true);
+        } else {
+            $this->_deleteFile($xmlFilename, true);
         }
     }
 
     protected function _convertConfigMenu()
     {
-        $resultXml = $this->_createConfigXml('@Magento/Backend/etc/menu.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Backend:etc/menu.xsd');
         $targetXml = $resultXml->addChild('menu');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml");
+        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->menu)) {
             $this->_convertConfigMenuRecursive($xml1->adminhtml->menu, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml");
+        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
             $this->_convertConfigMenuRecursive($xml2->menu, $targetXml);
         }
 
         if ($targetXml->children()) {
-            $this->_writeFile('etc/menu.xml', $resultXml);
+            $this->_writeFile('etc/adminhtml/menu.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/menu.xml');
+            $this->_deleteFile('etc/adminhtml/menu.xml', true);
         }
     }
 
@@ -847,19 +1040,21 @@ class ConvertM1M2
                 if (!empty($this->_aliases['modules'][$moduleName])) {
                     $attr['module'] = $this->_aliases['modules'][$moduleName];
                 } else {
-                    $this->log('ERROR: Unknown module alias: ' . $moduleName);
+                    $this->log('[ERROR] Unknown module alias: ' . $moduleName);
                 }
             }
             if ($parent) {
-                $attr['parent'] = $attr['id'];
+                $attr['parent'] = $parent ? $parent : 'Magento_Backend::content';
             }
 
-            $targetNode = $targetXml->addChild('add');
-            foreach ($attr as $k => $v) {
-                $targetNode->addAttribute($k, $v);
+            if (!empty($attr['title'])) {
+                $targetNode = $targetXml->addChild('add');
+                foreach ($attr as $k => $v) {
+                    $targetNode->addAttribute($k, $v);
+                }
             }
             if (!empty($srcNode->children)) {
-                $this->_convertConfigMenuRecursive($srcNode->children(), $targetXml, $attr['id']);
+                $this->_convertConfigMenuRecursive($srcNode->children, $targetXml, $attr['id']);
             }
         }
     }
@@ -868,7 +1063,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/system.xml", true);
         if ($xml) {
-            $resultXml = $this->_createConfigXml('@Magento/Config/etc/system_file.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Config:etc/system_file.xsd');
             $targetXml = $resultXml->addChild('system');
 
             if (!empty($xml->tabs)) {
@@ -879,6 +1074,7 @@ class ConvertM1M2
             if (!empty($xml->sections)) {
                 foreach ($xml->sections->children() as $sectionId => $sectionNode) {
                     $targetSectionNode = $this->_convertConfigSystemNode('section', $sectionNode, $targetXml);
+                    $targetSectionNode->addChild('resource', $this->_env['ext_name'] . '::system_config');
                     if (empty($sectionNode->groups)) {
                         continue;
                     }
@@ -940,7 +1136,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
         if (!empty($xml->crontab)) {
-            $resultXml = $this->_createConfigXml('@Magento/Cron/etc/crontab.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Cron:etc/crontab.xsd');
             $targetXml = $resultXml->addChild('group');
             $targetXml->addAttribute('id', 'default');
 
@@ -966,7 +1162,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->template->email)) {
-            $resultXml = $this->_createConfigXml('@Magento/Email/etc/email_templates.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Email:etc/email_templates.xsd');
 
             foreach ($xml->global->template->email->children() as $tplName => $tplNode) {
                 $targetNode = $resultXml->addChild('template');
@@ -990,7 +1186,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Magento/Catalog/etc/catalog_attributes.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Catalog:etc/catalog_attributes.xsd');
 
         //TODO: other types?
         if (!empty($xml->global->sales->quote->item->product_attributes)) {
@@ -1014,7 +1210,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->fieldsets)) {
-            $resultXml = $this->_createConfigXml('@Framework/Object/etc/fieldset.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:Object/etc/fieldset.xsd');
             $targetXml = $resultXml->addChild('scope');
             $targetXml->addAttribute('id', 'global');
 
@@ -1044,7 +1240,7 @@ class ConvertM1M2
     {
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('@Magento/Sales/etc/sales.xsd');
+        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/sales.xsd');
 
         if (!empty($xml->global->sales)) {
             foreach ($xml->global->sales->children() as $sectionName => $sectionNode) {
@@ -1089,7 +1285,7 @@ class ConvertM1M2
         $xml = $this->_readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->pdf)) {
-            $resultXml = $this->_createConfigXml('@Magento/Sales/etc/pdf_file.xsd');
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/pdf_file.xsd');
 
             $renderersXml = null;
 
@@ -1155,7 +1351,7 @@ class ConvertM1M2
         $xml = $this->_readFile($file);
 
         foreach ($xml->children() as $layoutName => $layoutNode) {
-            $resultXml = $this->_createConfigXml('@Framework/View/Layout/etc/page_configuration.xsd', 'page');
+            $resultXml = $this->_createConfigXml('urn:magento:framework:View/Layout/etc/page_configuration.xsd', 'page');
             $headXml = $resultXml->addChild('head');
             $bodyXml = $resultXml->addChild('body');
             foreach ($layoutNode->children() as $nodeTag => $node) {
@@ -1181,8 +1377,8 @@ class ConvertM1M2
                             }
                             break;
                         }
-                        //nobreak;
-                        
+                    //nobreak;
+
                     case 'block':
                         $this->_convertLayoutRecursive($area, $node, $bodyXml);
                         break;
@@ -1202,11 +1398,11 @@ class ConvertM1M2
             $this->_writeFile("{$outputDir}/{$layoutName}.xml", $resultXml);
         }
     }
-    
+
     protected function _convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         foreach ($sourceXml->children() as $child) {
-            $path = $this->_env['ext_name'] . '::' . (string)$child; 
+            $path = $this->_env['ext_name'] . '::' . (string)$child;
             break;
         }
         switch ((string)$sourceXml['method']) {
@@ -1214,12 +1410,12 @@ class ConvertM1M2
                 $targetNode = $targetXml->addChild('js');
                 $targetNode->addAttribute('class', $path);
                 break;
-                
+
             case 'addCss':
                 $targetNode = $targetXml->addChild('css');
                 $targetNode->addAttribute('src', $path);
                 break;
-                
+
             default:
                 $targetNode = $targetXml->appendChild($sourceXml->cloneNode(true));
         }
@@ -1233,7 +1429,7 @@ class ConvertM1M2
                 $nodeName = (string)$sourceXml['name'];
                 if (!empty($this->_layouts[$area]['blocks'][$nodeName])) {
                     $className = $this->_layouts[$area]['blocks'][$nodeName];
-                    if (is_subclass_of($className, 'Mage_Core_Block_Text_List')) {
+                    if (is_subclass_of($className, 'Mage_Core_Block_Text_List') || $nodeName === 'content') {
                         $targetChildXml = $targetXml->addChild('referenceContainer');
                     } else {
                         $targetChildXml = $targetXml->addChild('reference');
@@ -1431,6 +1627,7 @@ class ConvertM1M2
                     $contents = $this->_readFile($file);
                     $contents = $this->_convertCodeContents($contents);
                     $contents = $this->_convertCodeObjectManagerToDI($contents);
+                    $contents = $this->_convertNamespaceUse($contents);
                     $this->_writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
@@ -1444,6 +1641,8 @@ class ConvertM1M2
         $dir = $this->_expandSourcePath("@EXT/{$folder}");
         $files = $this->_findFilesRecursive($dir);
         $targetDir = $this->_expandOutputPath($folder);
+        $fromName = array_keys($this->_replace['files']);
+        $toName = array_values($this->_replace['files']);
         foreach ($files as $filename) {
             $contents = $this->_readFile("{$dir}/{$filename}");
             $targetFile = "{$targetDir}/{$filename}";
@@ -1453,7 +1652,8 @@ class ConvertM1M2
             } else {
                 $contents = $this->_convertCodeContents($contents);
                 $contents = $this->_convertCodeObjectManagerToDI($contents);
-                $targetFile = str_replace('/Model/Mysql4/', '/Model/Resource/', $targetFile);
+                $contents = $this->_convertNamespaceUse($contents);
+                $targetFile = str_replace($fromName, $toName, $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
         }
@@ -1461,9 +1661,16 @@ class ConvertM1M2
 
     protected function _convertCodeContents($contents, $mode = 'php')
     {
-        $this->_currentFile = [];
+        $this->_currentFile = [
+            'filename' => $this->_currentFile['filename'],
+        ];
 
-        $this->_currentFile['nl'] = preg_match('#\r\n#', $contents) ? "\r\n" : "\n";
+
+        if (preg_match('#(\\r\\n|\\r|\\n)#', $contents, $m)) {
+            $this->_currentFile['nl'] = $m[0];
+        } else {
+            $this->_currentFile['nl'] = "\r\n";
+        }
 
         // Replace code snippets
         $codeTr = $this->_replace['code'];
@@ -1472,14 +1679,7 @@ class ConvertM1M2
         $contents = preg_replace(array_keys($codeTr), array_values($codeTr), $contents);
 
         if ($mode === 'php') {
-            // Replace $this->_init() in models and resources with class names and table names
-            $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"][,\)])#', function ($m) {
-                if ($m[3] === ')') {
-                    return $m[1] . $this->_getClassName('models', $m[2]) . $m[3];
-                } else {
-                    return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
-                }
-            }, $contents);
+            $contents = $this->_convertCodeContentsPhpMode($contents);
         }
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
@@ -1519,8 +1719,53 @@ class ConvertM1M2
         #$contents = preg_replace($classPattern, "namespace \$3;\n\n\$1\$2class \$4\$5", $contents);
         if (preg_match($classPattern, $contents, $m)) {
             $this->_currentFile['class'] = $m[3] . '\\' . $m[4];
-            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}{$m[2]}class {$m[4]}{$m[5]}", $contents);
+            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}class {$m[4]}{$m[5]}", $contents);
         }
+
+        return $contents;
+    }
+
+    protected function _convertCodeContentsPhpMode($contents)
+    {
+        // Replace $this->_init() in models and resources with class names and table names
+        $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"])#', function ($m) {
+            $filename = $this->_currentFile['filename'];
+            $cls = explode('/', $m[2]);
+            if (!empty($this->_aliases['models']["{$cls[0]}_resource"]) && !empty($cls[1])) {
+                $resKey = "{$cls[0]}_resource/{$cls[1]}";
+            } elseif (!empty($this->_aliases['models']["{$cls[0]}_mysql4"]) && !empty($cls[1])) {
+                $resKey = "{$cls[0]}_mysql4/{$cls[1]}";
+            } else {
+                $resKey = false;
+            }
+            if (preg_match('#/Model/(Mysql4|Resource)/.*/Collection\.php$#', $filename)) {
+                if ($resKey) {
+                    $model    = $this->_getClassName('models', $m[2], true);
+                    $resModel = $this->_getClassName('models', $resKey, true);
+                    return $m[1] . $model . $m[3] . ', ' . $m[3] . $resModel . $m[3];
+                } else {
+                    $this->log("[WARN] No resource model for {$m[2]}");
+                    return $m[0];
+                }
+            } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
+                return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
+            } elseif (preg_match('#/Model/#', $filename)) {
+                if ($resKey) {
+                    $resModel = $this->_getClassName('models', $resKey, true);
+                    return $m[1] . $resModel . $m[3];
+                } else {
+                    $this->log("[WARN] No resource model for {$m[2]}");
+                    return $m[0];
+                }
+            } else {
+                return $m[0];
+            }
+        }, $contents);
+
+        // convert block name to block class
+        $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
+            return $m[1] . $this->_getOpportunisticArgValue($m[2]) . $m[3];
+        }, $contents);
 
         return $contents;
     }
@@ -1625,6 +1870,7 @@ class ConvertM1M2
 
         if ($isController) {
             $contents = join($nl, $lines);
+            $contents = preg_replace('#^(\s*)(class\s+.*)$#m', '$1abstract $2', $contents);
         }
         $this->_currentFile['methods'] = $methods;
         $this->_currentFile['lines'] = $lines;
@@ -1632,7 +1878,7 @@ class ConvertM1M2
         return $contents;
     }
 
-    protected function _convertCodeObjectManagerToDI($contents)
+    protected function _convertCodeObjectManagerToDI($contents, $context = null)
     {
         $objMgrRe = preg_quote(self::OBJ_MGR, '#');
         if (!preg_match_all("#{$objMgrRe}\(['\"]([\\\\A-Za-z0-9]+?)['\"]\)#", $contents, $matches, PREG_SET_ORDER)) {
@@ -1641,8 +1887,40 @@ class ConvertM1M2
         $propertyLines = [];
         $constructArgs = [];
         $constructLines = [];
+        $constructParentArgs = [];
         $pad = '    ';
         $declared = [];
+
+        if (!$context) {
+            $filename = $this->_currentFile['filename'];
+            if (preg_match('#Controller\.php$#', $filename)) {
+                $context = 'controller';
+            } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
+                $context = 'resourceModel';
+            } elseif (preg_match('#/Helper/#', $filename)) {
+                $context = 'helper';
+            }
+        }
+        $optionalArgs = false;
+        if ($context) {
+            if (!empty($this->_diDefaultArgs[$context])) {
+                foreach ($this->_diDefaultArgs[$context] as $var => $arg) {
+                    if (!preg_match('#(\$[A-Za-z0-9_]+)(\s*=)?#', $arg, $m)) {
+                        var_dump($arg, $m);
+                    }
+                    $constructArgs[] = $arg;
+                    $constructParentArgs[] = $m[1];
+                    if (!empty($m[2])) {
+                        $optionalArgs = true;
+                    }
+                }
+            }
+            $contextMethod = '_convertDIContext' . ucfirst($context);
+            if (method_exists($this, $contextMethod)) {
+                $this->{$contextMethod}($constructArgs, $constructParentArgs);
+            }
+        }
+
         foreach ($matches as $m) {
             $class = $m[1];
             if (!empty($declared[$class])) {
@@ -1659,9 +1937,11 @@ class ConvertM1M2
             $propertyLines[] = "{$pad}protected \$_{$var};";
             $propertyLines[] = "";
 
-            $constructArgs[] = "\\{$class} \${$var}";
+            $constructArgs[] = "\\{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
 
             $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
+
+            //$constructParentArgs[] = $var;
 
             $contents = str_replace($m[0], "\$this->_{$var}", $contents);
         }
@@ -1675,11 +1955,71 @@ class ConvertM1M2
             $comma = !empty($m[2]) ? ', ' : '';
             $contents = str_replace($m[0], "{$m[1]}{$m[2]}{$comma}{$argsStr}{$m[3]}{$nl}{$assignStr}{$nl}", $contents);
         } else {
+            $constructParentArgsStr = join(', ', $constructParentArgs);
             $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}" .
-                               "{$nl}{$pad}{$pad}parent::__construct();{$nl}{$pad}}{$nl}";
+                "{$nl}{$pad}{$pad}parent::__construct({$constructParentArgsStr});{$nl}{$pad}}{$nl}";
         }
         $contents = preg_replace($classStartRe, $classStartWith, $contents);
 
+        return $contents;
+    }
+
+    protected function _convertNamespaceUse($contents)
+    {
+        if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
+            return $contents;
+        }
+        $namespaceLine = $m[0];
+        $namespace = '\\' . $m[1];
+        if (!preg_match('#^\s*class\s+([^\s]+)#m', $contents, $m)) {
+            return $contents;
+        }
+        $fileAlias = $m[1];
+        $fileClass = $namespace . '\\' . $m[1];
+        if (!preg_match_all('#[^\\\\A-Za-z0-9]((\\\\([A-Za-z0-9]+))+)(\s*\*/)?#', $contents, $matches, PREG_SET_ORDER)) {
+            return $contents;
+        }
+        $mapByClass = [];
+        $mapByAlias = [$fileAlias => $fileClass];
+        $useLines = [];
+        foreach ($matches as $m) {
+            if (!empty($m[4])) {
+                continue;
+            }
+            $class = $m[1];
+            if ($class === $namespace) {
+                continue;
+            }
+            if (!empty($mapByClass[$class])) {
+                continue;
+            }
+            $parts = explode('\\', $class);
+            array_shift($parts);
+            $i = sizeof($parts) - 1;
+            if ($i < 2) {
+                continue;
+            }
+            $alias = $parts[$i];
+            $useAs = false;
+            while ($i > 0 && !empty($mapByAlias[$alias]) || preg_match($this->_reservedWordsRe, $alias)) {
+                $i--;
+                $alias = $parts[$i] . $alias;
+                $useAs = true;
+            }
+            $mapByClass[$class] = $alias;
+            $mapByAlias[$alias] = $class;
+            $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ";\n";
+        }
+
+        $nl = $this->_currentFile['nl'];
+        uksort($mapByClass, function($s1, $s2) {
+            $l1 = strlen($s1);
+            $l2 = strlen($s2);
+            return $l1 < $l2 ? 1 : ($l1 > $l2 ? -1 : 0);
+        });
+        sort($useLines);
+        $contents = str_replace(array_keys($mapByClass), array_values($mapByClass), $contents);
+        $contents = str_replace($namespaceLine, $namespaceLine . $nl . $nl . join($nl, $useLines), $contents);
         return $contents;
     }
 
@@ -1709,6 +2049,7 @@ class ConvertM1M2
         if (strpos($file, 'Controller.php') === false) {
             $contents = $this->_convertCodeContents($contents);
             $contents = $this->_convertCodeObjectManagerToDI($contents);
+            $contents = $this->_convertNamespaceUse($contents);
             $this->_writeFile($targetFile, $contents, false);
             return;
         }
@@ -1718,6 +2059,7 @@ class ConvertM1M2
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
         $contents = $this->_convertCodeObjectManagerToDI($contents);
+        $contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -1739,17 +2081,12 @@ class ConvertM1M2
 
             $classContents = $this->_convertCodeContents($classContents);
             $classContents = $this->_convertCodeObjectManagerToDI($classContents);
+            $classContents = $this->_convertNamespaceUse($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
             $this->_writeFile($targetActionFile, $classContents, false);
         }
-    }
-
-
-    protected function _convertCodeClassUse($contents, $className)
-    {
-        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
@@ -1765,7 +2102,7 @@ class ConvertM1M2
     {
         $this->_autoloadMode = 'm2';
 
-        $this->log("EXTENSION (STAGE 2): {$extName}");
+        $this->log("[INFO] EXTENSION (STAGE 2): {$extName}");
 
         $extDir = str_replace('_', '/', $extName);
 
@@ -1776,7 +2113,7 @@ class ConvertM1M2
             }
             $class = str_replace(['/', '.php'], ['\\', ''], "{$extDir}/{$file}");
             if (!class_exists($class)) {
-                $this->log('ERROR: Class not found: ' . $class);
+                $this->log('[ERROR] Class not found: ' . $class);
             }
         }
     }
