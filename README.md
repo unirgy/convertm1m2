@@ -64,7 +64,7 @@ When running from the web, no parameters can be accepted, and the script expects
   * **Source Modules**: `$sourceDir` = `source/` - Copy here your extensions to be converted, files for each extension 
   in a separate folder, named the same as extensions.
   
-  * **Destination**: `$outputDir` = `../magento2/` - The resulting converted extensions will be stored here, in 
+  * **Destination**: `$mage2Dir` = `../magento2/` - The resulting converted extensions will be stored here, in 
   `magento2/app/code/*`, for quick testing.
 
 When running from CLI, the following parameters are accepted (all optional):

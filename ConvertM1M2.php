@@ -1960,11 +1960,15 @@ EOT;
 
         $parentFile = str_replace('\\', '/', $parentClass) . '.php';
         if (strpos($parentClass, '\\Magento\\Framework\\') === 0) {
-            $parentFile = $this->_env['mage2_dir'] . '/lib/internal' . $parentFile;
+            $parentPath = $this->_env['mage2_dir'] . '/lib/internal' . $parentFile;
+            if (!file_exists($parentPath)) {
+                $parentFile1 = preg_replace('#^/Magento/Framework/#', '', $parentFile);
+                $parentPath = $this->_env['mage2_dir'] . '/vendor/magento/framework/' . $parentFile1;
+            }
         } else {
-            $parentFile = $this->_env['mage2_code_dir'] . $parentFile;
+            $parentPath = $this->_env['mage2_code_dir'] . $parentFile;
         }
-        $parentContents = file_get_contents($parentFile);
+        $parentContents = file_get_contents($parentPath);
         $parentMethods = $this->_convertCodeParseMethods($parentContents, false, true);
         $parentConstruct = null;
         foreach ($parentMethods as $method) {
