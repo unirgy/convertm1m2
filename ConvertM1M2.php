@@ -1540,17 +1540,10 @@ EOT;
         $files = $this->_findFilesRecursive($dir);
         $outputDir = $this->_expandOutputPath("view/{$area}/templates");
         foreach ($files as $filename) {
-            $this->_convertTemplateFile($dir, $filename, $outputDir);
+            $contents = $this->_readFile("{$dir}/{$filename}");
+            $contents = $this->_convertCodeContents($contents, 'phtml');
+            $this->_writeFile("{$outputDir}/{$filename}", $contents);
         }
-    }
-
-    protected function _convertTemplateFile($dir, $filename, $outputDir)
-    {
-        $contents = $this->_readFile("{$dir}/{$filename}");
-
-        $contents = $this->_convertCodeContents($contents, 'phtml');
-
-        $this->_writeFile("{$outputDir}/{$filename}", $contents);
     }
 
     protected function _convertTemplatesEmails()
@@ -1878,8 +1871,6 @@ EOT;
 
     protected function _convertCodeObjectManagerToDI($contents)
     {
-        $construct = null;
-
         $objMgrRe = preg_quote(self::OBJ_MGR, '#');
         if (!preg_match_all("#{$objMgrRe}\(['\"]([\\\\A-Za-z0-9]+?)['\"]\)#", $contents, $matches, PREG_SET_ORDER)) {
             return $contents;
