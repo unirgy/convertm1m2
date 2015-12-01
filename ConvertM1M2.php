@@ -1904,7 +1904,7 @@ EOT;
         //var_dump($constructArgs, $constructParentArgs);
 #echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($declared);
         foreach ($matches as $m) {
-            $class = $m[1];
+            $class = '\\' . ltrim($m[1], '\\');
             if (!empty($declared[$class])) {
                 continue;
             }
@@ -1915,12 +1915,12 @@ EOT;
 
             if (empty($parentClasses[$class])) {
                 $propertyLines[] = "{$pad}/**";
-                $propertyLines[] = "{$pad} * @var \\\\{$class}";
+                $propertyLines[] = "{$pad} * @var {$class}";
                 $propertyLines[] = "{$pad} */";
                 $propertyLines[] = "{$pad}protected \$_{$var};";
                 $propertyLines[] = "";
 
-                $constructArgs[] = "\\{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
+                $constructArgs[] = "{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
 
                 $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
             }
@@ -1957,6 +1957,8 @@ EOT;
 
     protected function _convertDIGetParentConstructArgs($contents)
     {
+        static $cache = [];
+
         $result = [
             'args' => [],
             'parent_args' => [],
@@ -1964,28 +1966,18 @@ EOT;
             'optional' => false,
             'has_parent' => false,
         ];
-        if (!preg_match('#^\s*((abstract|final)\s+)?class\s+([^\s]+)\s+extends\s+([^\s]+)#m', $contents, $m)) {
+
+        $parentResult = $this->_convertFindParentConstruct($contents);
+        if (!$parentResult) {
             return $result;
         }
-
-        $parentClass = $m[4];
-
-        static $cache = [];
+        $parentClass = $parentResult['parent_class'];
+        $parentConstructClass = $parentResult['construct_class'];
         if (!empty($cache[$parentClass])) {
             return $cache[$parentClass];
         }
+        $parentContents = $parentResult['contents'];
 
-        $parentFile = str_replace('\\', '/', $parentClass) . '.php';
-        if (strpos($parentClass, '\\Magento\\Framework\\') === 0) {
-            $parentPath = $this->_env['mage2_dir'] . '/lib/internal' . $parentFile;
-            if (!file_exists($parentPath)) {
-                $parentFile1 = preg_replace('#^/Magento/Framework/#', '', $parentFile);
-                $parentPath = $this->_env['mage2_dir'] . '/vendor/magento/framework/' . $parentFile1;
-            }
-        } else {
-            $parentPath = $this->_env['mage2_code_dir'] . $parentFile;
-        }
-        $parentContents = file_get_contents($parentPath);
         $parentMethods = $this->_convertCodeParseMethods($parentContents, false, true);
         $parentConstruct = null;
         foreach ($parentMethods as $method) {
@@ -2017,43 +2009,104 @@ EOT;
         if (!preg_match_all('#([\\\\A-Za-z0-9]+)\s+(\$[A-Za-z0-9_]+)([^,]*)#m', $argsStr, $matches, PREG_SET_ORDER)) {
             return $result;
         }
-        $parentUseClasses = null;
-        $parentNamespace = null;
-        $useLineRe = '#^\s*use\s+([\\\\A-Za-z0-9]+\\\\([A-Za-z0-9]+))(\s+as\s+([A-Za-z0-9]+))?\s*;$#m';
-#echo '<hr>' . $this->_currentFile['class'] . ', ' . $parentClass . '<br>';
         foreach ($matches as $m) {
-            $argClass = $m[1];
-            if ($argClass !== 'array' && $argClass[0] !== '\\') {
-                if ($parentUseClasses === null) {
-                    $parentUseClasses = [];
-                    if (preg_match_all($useLineRe, $parentContents, $parentUseMatches, PREG_SET_ORDER)) {
-#var_dump($parentUseMatches);
-                        foreach ($parentUseMatches as $m1) {
-                            $alias = !empty($m1[4]) ? $m1[4] : $m1[2];
-                            $parentUseClasses[$alias] = $m1[1];
-                        }
-                    }
-                }
-
-#var_dump($parentUseClasses);
-                if (!empty($parentUseClasses[$argClass])) {
-                    $argClass = $parentUseClasses[$argClass];
-                } else {
-                    if ($parentNamespace === null) {
-                        $parentClassArr = explode('\\', $parentClass);
-                        array_pop($parentClassArr);
-                        $parentNamespace = join('\\', $parentClassArr);
-                    }
-                    $argClass = $parentNamespace . '\\' . $argClass;
-                }
-            }
-            $result['classes'][ltrim($argClass, '\\')] = 1;
-            $result['args'][] = $argClass . ' ' . $m[2] . $m[3];
+            $argClass = $this->_convertGetFullClassName($parentContents, $parentConstructClass, $m[1]);
+            $result['classes'][$argClass] = 1;
+            $result['args'][] = rtrim($argClass . ' ' . $m[2] . $m[3]);
             $result['parent_args'][] = $m[2];
         }
         $result['optional'] = strpos($argsStr, '=') !== false;
-        $cache[$parentClass] = $result;
+        $cache[$parentClass] = $cache[$parentConstructClass] = $result;
         return $result;
+    }
+
+    protected function _convertFindParentConstruct($contents, $first = true)
+    {
+        static $cache = [];
+
+        if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
+            return $contents;
+        }
+        $parentNamespace = $m[1];
+
+        if (!preg_match('#^\s*((abstract|final)\s+)?class\s+([^\s]+)\s+extends\s+([^\s]+)#m', $contents, $m)) {
+            return false;
+        }
+        $parentClass = $this->_convertGetFullClassName($contents, $parentNamespace . '\\' . $m[3], $m[4]);
+
+        if (!empty($cache[$parentClass])) {
+            return $cache[$parentClass];
+        }
+
+        $parentFile = str_replace('\\', '/', $parentClass) . '.php';
+        if (preg_match('#^\\\\Magento\\\\Framework\\\\#', $parentClass)) {
+            $parentPath = $this->_env['mage2_dir'] . '/lib/internal' . $parentFile;
+            if (!file_exists($parentPath)) {
+                $parentFile1 = preg_replace('#^Magento/Framework/#', '', $parentFile);
+                $parentPath = $this->_env['mage2_dir'] . '/vendor/magento/framework' . $parentFile1;
+            }
+        } else {
+            $parentPath = $this->_env['mage2_code_dir'] . $parentFile;
+        }
+        $parentContents = file_get_contents($parentPath);
+
+        if (preg_match('#function\s+__construct\s*\(#', $parentContents)) {
+            $result = [
+                'construct_class' => $parentClass,
+                'contents' => $parentContents,
+            ];
+        } else {
+            $result = $this->_convertFindParentConstruct($parentContents, false);
+        }
+
+        if ($result && $first) {
+            $result['parent_class'] = $parentClass;
+            $cache[$parentClass] = $result;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param $contents
+     * @param $contentsClass
+     * @param $shortClass
+     * @return string full class with first backslash for consistency
+     */
+    protected function _convertGetFullClassName($contents, $contentsClass, $shortClass)
+    {
+        static $useLineRe = '#^\s*use\s+([\\\\A-Za-z0-9]+\\\\([A-Za-z0-9]+))(\s+as\s+([A-Za-z0-9]+))?\s*;$#m';
+        static $useCache = [];
+        static $nsCache = [];
+
+        if ($shortClass === 'array' || $shortClass[0] === '\\') {
+            return $shortClass;
+        }
+
+        $contentsClass = ltrim($contentsClass, '\\');
+
+        if (empty($useCache[$contentsClass])) {
+            $useCache[$contentsClass] = [];
+            if (preg_match_all($useLineRe, $contents, $parentUseMatches, PREG_SET_ORDER)) {
+                foreach ($parentUseMatches as $m) {
+                    $alias = !empty($m[4]) ? $m[4] : $m[2];
+                    $useCache[$contentsClass][$alias] = '\\' . ltrim($m[1], '\\');
+                }
+            }
+        }
+
+        if (!empty($useCache[$contentsClass][$shortClass])) {
+            $fullClass = $useCache[$contentsClass][$shortClass];
+        } else {
+            if (empty($nsCache[$contentsClass])) {
+                $parentClassArr = explode('\\', $contentsClass);
+                array_pop($parentClassArr);
+                $nsCache[$contentsClass] = join('\\', $parentClassArr);
+            }
+            $fullClass = '\\' . $nsCache[$contentsClass] . '\\' . $shortClass;
+        }
+        #echo '<hr>Class: ' . $contentsClass . ' Short: ' . $shortClass . ' Full: ' . $fullClass;
+        return $fullClass;
     }
 
     protected function _convertNamespaceUse($contents)
@@ -2133,13 +2186,13 @@ EOT;
     protected function _convertController($file, $sourceDir, $targetDir)
     {
         $targetFile = preg_replace('#Controller\.php$#', '.php', "{$targetDir}/{$file}");
-        $targetFile = preg_replace('#/([^/]+)admin/#', '/Adminhtml/\\1/', $targetFile);
+        $targetFile = preg_replace('#/[^/]+admin/#', '/Adminhtml/', $targetFile);
 
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
 
         $fileClass = preg_replace('#Controller$#', '', $fileClass);
-        $fileClass = preg_replace('#([^_]+)admin_#', 'Adminhtml_\\1_', $fileClass);
+        $fileClass = preg_replace('#[^_]+admin_#', 'Adminhtml_', $fileClass);
         $ctrlClass = "{$this->_env['ext_name']}_Controller_{$fileClass}";
 
         $contents = $this->_readFile("{$sourceDir}/{$file}");
@@ -2183,7 +2236,7 @@ EOT;
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
-            
+
             $this->_writeFile($targetActionFile, $classContents, false);
         }
     }
