@@ -1032,6 +1032,9 @@ EOT;
                 }
             }
             $attr['parent'] = $parent ? $parent : ''; #'Magento_Backend::content';
+            if (!empty($attr['action'])) {
+                $attr['action'] = preg_replace('#^adminhtml/#', 'admin/', $attr['action']);
+            }
 
             if (!empty($attr['title'])) {
                 $targetNode = $targetXml->addChild('add');
@@ -1776,9 +1779,13 @@ EOT;
             }
         }
         if (null === $classStart) { // not a class
-            $this->_currentFile['methods'] = [];
-            $this->_currentFile['lines'] = $lines;
-            return $returnResult ? [] : $contents;
+            if ($returnResult) {
+                return [];
+            } else {
+                $this->_currentFile['methods'] = [];
+                $this->_currentFile['lines']   = $lines;
+                return $contents;
+            }
         }
 
         // Find starts of all methods
@@ -1794,9 +1801,13 @@ EOT;
             }
         }
         if (!$methods) {
-            $this->_currentFile['methods'] = [];
-            $this->_currentFile['lines'] = $lines;
-            return $returnResult ? [] : $contents;
+            if ($returnResult) {
+                return [];
+            } else {
+                $this->_currentFile['methods'] = [];
+                $this->_currentFile['lines']   = $lines;
+                return $contents;
+            }
         }
 
         $lastMethodIdx = sizeof($methods) - 1;
@@ -1867,7 +1878,6 @@ EOT;
 
         $this->_currentFile['methods'] = $methods;
         $this->_currentFile['lines'] = $lines;
-
         return $contents;
     }
 
@@ -2121,13 +2131,18 @@ EOT;
     protected function _convertController($file, $sourceDir, $targetDir)
     {
         $targetFile = preg_replace('#Controller\.php$#', '.php', "{$targetDir}/{$file}");
+        $targetFile = preg_replace('#/[^/]+admin/#', '/Adminhtml/', $targetFile);
+
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
+
         $fileClass = preg_replace('#Controller$#', '', $fileClass);
+        $fileClass = preg_replace('#[^_]+admin_#', 'Adminhtml_', $fileClass);
         $ctrlClass = "{$this->_env['ext_name']}_Controller_{$fileClass}";
 
         $contents = $this->_readFile("{$sourceDir}/{$file}");
         $contents = str_replace($origClass, $ctrlClass, $contents);
+
 
         if (strpos($file, 'Controller.php') === false) {
             $contents = $this->_convertCodeContents($contents);
@@ -2138,7 +2153,6 @@ EOT;
         }
 
         #$this->log('CONTROLLER: ' . $origClass);
-
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
         $contents = $this->_convertCodeObjectManagerToDI($contents);
