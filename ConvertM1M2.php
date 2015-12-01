@@ -1674,6 +1674,10 @@ EOT;
         if ($mode === 'php') {
             $contents = $this->_convertCodeContentsPhpMode($contents);
         }
+        if ($mode === 'phtml') {
+            $contents = str_replace(self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
+                '$block->getLayout()', $contents);
+        }
 
         // convert block name to block class
         $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
