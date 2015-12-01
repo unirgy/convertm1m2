@@ -1513,7 +1513,7 @@ EOT;
             return $this->_env['ext_name'] . '::' . $value;
         }
 
-        if (preg_match('#^([a-z_]+)/(a-z0-9_]+)$#i', $value)) {
+        if (preg_match('#^[A-Za-z_]+/[A-Za-z0-9_]+$#', $value)) {
             $class = $this->_getClassName('models', $value);
             if ($class) {
                 return $class;
@@ -1675,6 +1675,11 @@ EOT;
             $contents = $this->_convertCodeContentsPhpMode($contents);
         }
 
+        // convert block name to block class
+        $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
+            return $m[1] . $this->_getClassName('blocks', $m[2]) . $m[3];
+        }, $contents);
+
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
         $re = '#(Mage::getModel|Mage::getResourceModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
         $contents = preg_replace_callback($re, function($m) {
@@ -1754,11 +1759,6 @@ EOT;
             } else {
                 return $m[0];
             }
-        }, $contents);
-
-        // convert block name to block class
-        $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
-            return $m[1] . $this->_getOpportunisticArgValue($m[2]) . $m[3];
         }, $contents);
 
         return $contents;
