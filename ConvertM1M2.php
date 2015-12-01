@@ -2136,7 +2136,7 @@ EOT;
             }
             $class = $m[1];
             if ($class === $namespace) {
-                continue;
+                #continue; // not sure if always will result in correct code
             }
             if (!empty($mapByClass[$class])) {
                 continue;
