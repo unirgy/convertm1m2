@@ -1877,14 +1877,15 @@ EOT;
         }
         $propertyLines = [];
         $constructLines = [];
+        $declared = [];
         $pad = '    ';
-
+        
         $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
         $constructArgs = $parentArgs['args'];
         $constructParentArgs = $parentArgs['parent_args'];
         $optionalArgs = $parentArgs['optional'];
         $hasParent = $parentArgs['has_parent'];
-        $declared = $parentArgs['classes'];
+        $parentClasses = $parentArgs['classes'];
         //*/
         //var_dump($constructArgs, $constructParentArgs);
 #echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($declared);
@@ -1898,15 +1899,17 @@ EOT;
             $var = (!empty($cArr[2]) ? $cArr[2] : '') . $cArr[1] . $cArr[0];
             $var[0] = strtolower($var[0]);
 
-            $propertyLines[] = "{$pad}/**";
-            $propertyLines[] = "{$pad} * @var \\\\{$class}";
-            $propertyLines[] = "{$pad} */";
-            $propertyLines[] = "{$pad}protected \$_{$var};";
-            $propertyLines[] = "";
+            if (empty($parentClasses[$class])) {
+                $propertyLines[] = "{$pad}/**";
+                $propertyLines[] = "{$pad} * @var \\\\{$class}";
+                $propertyLines[] = "{$pad} */";
+                $propertyLines[] = "{$pad}protected \$_{$var};";
+                $propertyLines[] = "";
 
-            $constructArgs[] = "\\{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
+                $constructArgs[] = "\\{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
 
-            $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
+                $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
+            }
 
             //$constructParentArgs[] = $var;
 
