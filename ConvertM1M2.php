@@ -1031,9 +1031,11 @@ EOT;
                     $this->log('[ERROR] Unknown module alias: ' . $moduleName);
                 }
             }
-            $attr['parent'] = $parent ? $parent : ''; #'Magento_Backend::content';
+            if ($parent) {
+                $attr['parent'] = $parent;# ?: ''; #'Magento_Backend::content';
+            }
             if (!empty($attr['action'])) {
-                $attr['action'] = preg_replace('#^adminhtml/#', 'admin/', $attr['action']);
+                $attr['action'] = preg_replace(['#^adminhtml/#', '#_#', '#admin/#'], ['', '/', '/'], $attr['action']);
             }
 
             if (!empty($attr['title'])) {
@@ -2131,13 +2133,13 @@ EOT;
     protected function _convertController($file, $sourceDir, $targetDir)
     {
         $targetFile = preg_replace('#Controller\.php$#', '.php', "{$targetDir}/{$file}");
-        $targetFile = preg_replace('#/[^/]+admin/#', '/Adminhtml/', $targetFile);
+        $targetFile = preg_replace('#/([^/]+)admin/#', '/Adminhtml/\\1/', $targetFile);
 
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
 
         $fileClass = preg_replace('#Controller$#', '', $fileClass);
-        $fileClass = preg_replace('#[^_]+admin_#', 'Adminhtml_', $fileClass);
+        $fileClass = preg_replace('#([^_]+)admin_#', 'Adminhtml_\\1_', $fileClass);
         $ctrlClass = "{$this->_env['ext_name']}_Controller_{$fileClass}";
 
         $contents = $this->_readFile("{$sourceDir}/{$file}");
@@ -2161,7 +2163,6 @@ EOT;
         $this->_writeFile($targetFile, $contents);
 
         $nl = $this->_currentFile['nl'];
-
         foreach ($this->_currentFile['methods'] as $method) {
             if (!preg_match('#^(.*)Action$#', $method['name'], $m)) {
                 continue;
@@ -2182,6 +2183,7 @@ EOT;
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
+            
             $this->_writeFile($targetActionFile, $classContents, false);
         }
     }
