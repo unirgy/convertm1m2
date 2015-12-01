@@ -775,7 +775,9 @@ EOT;
                     $attr['id'] = $aclId;
                 }
             } else {
-                $attr['id'] = $this->_env['ext_name'] . ':' . $key;
+                list(, $parentId) = explode('::', $targetXml['id']);
+                #$parentId = $parentIdArr[sizeof($parentIdArr) - 1];
+                $attr['id'] = "{$this->_env['ext_name']}::{$parentId}_{$key}";
             }
             if (!empty($sourceNode->title)) {
                 $attr['title'] = $sourceNode->title;
@@ -1011,6 +1013,7 @@ EOT;
                 $attr['id'] = $this->_env['ext_name'] . '::' . $key;
             }
             $attr['resource'] = $attr['id'];
+            $attr['module'] = $this->_env['ext_name'];
 
             foreach (['title' => 'title', 'sort_order' => 'sortOrder', 'action' => 'action'] as $src => $tgt) {
                 if (!empty($srcNode->{$src})) {
@@ -1028,9 +1031,7 @@ EOT;
                     $this->log('[ERROR] Unknown module alias: ' . $moduleName);
                 }
             }
-            if ($parent) {
-                $attr['parent'] = $parent ? $parent : 'Magento_Backend::content';
-            }
+            $attr['parent'] = $parent ? $parent : ''; #'Magento_Backend::content';
 
             if (!empty($attr['title'])) {
                 $targetNode = $targetXml->addChild('add');
@@ -1039,7 +1040,8 @@ EOT;
                 }
             }
             if (!empty($srcNode->children)) {
-                $this->_convertConfigMenuRecursive($srcNode->children, $targetXml, $attr['id']);
+                $nextParent = !empty($attr['title']) ? $attr['id'] : null;
+                $this->_convertConfigMenuRecursive($srcNode->children, $targetXml, $nextParent);
             }
         }
     }
@@ -1879,7 +1881,7 @@ EOT;
         $constructLines = [];
         $declared = [];
         $pad = '    ';
-        
+
         $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
         $constructArgs = $parentArgs['args'];
         $constructParentArgs = $parentArgs['parent_args'];
