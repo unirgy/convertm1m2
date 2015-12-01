@@ -29,12 +29,12 @@ if (PHP_SAPI === 'cli') {
     parse_str(implode('&', array_slice($argv, 1)), $_GET);
     $sourceDir = !empty($_GET['s']) ? $_GET['s'] : "{$cwd}/source";
     $mage1Dir = !empty($_GET['m']) ? $_GET['m'] : "{$cwd}/../magento";
-    $outputDir = !empty($_GET['o']) ? $_GET['o'] : "{$cwd}/../magento2/app/code";
+    $mage2Dir = !empty($_GET['o']) ? $_GET['o'] : "{$cwd}/../magento2";
     $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
 } else {
     $sourceDir = 'source';
     $mage1Dir = '../magento';
-    $outputDir = '../magento2/app/code';
+    $mage2Dir = '../magento2';
     $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
     echo "<pre>";
 }
@@ -44,7 +44,7 @@ error_reporting(E_ALL | E_STRICT);
 
 $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
-$converter = new ConvertM1M2($sourceDir, $mage1Dir, $outputDir);
+$converter = new ConvertM1M2($sourceDir, $mage1Dir, $mage2Dir);
 $converter->convertAllExtensions($stage);
 $converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
 die;
@@ -73,23 +73,6 @@ class ConvertM1M2
     // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
     protected $_replace;
 
-    protected $_diDefaultArgs = [
-        'controller' => [
-            '\Magento\Backend\App\Action\Context $context',
-        ],
-        'helper' => [
-            '\Magento\Backend\App\Action\Context $context',
-        ],
-        'resourceModel' => [
-            '\Magento\Framework\Data\Collection\EntityFactoryInterface $entityFactory',
-            '\Psr\Log\LoggerInterface $logger',
-            '\Magento\Framework\Data\Collection\Db\FetchStrategyInterface $fetchStrategy',
-            '\Magento\Framework\Event\ManagerInterface $eventManager',
-            '\Magento\Framework\DB\Adapter\AdapterInterface $connection = null',
-            '\Magento\Framework\Model\ResourceModel\Db\AbstractDb $resource = null',
-        ],
-    ];
-
     protected $_reservedWordsRe = '#^(
 (a(bstract|nd|rray|s))|
 (c(a(llable|se|tch)|l(ass|one)|on(st|tinue)))|
@@ -98,7 +81,6 @@ class ConvertM1M2
 (f(inal|or(each)?|unction))|
 (g(lobal|oto))|
 (i(f|mplements|n(clude(_once)?|st(anceof|eadof)|terface)|sset))|
-(map)|
 (n(amespace|ew))|
 (p(r(i(nt|vate)|otected)|ublic))|
 (re(quire(_once)?|turn))|
@@ -106,6 +88,7 @@ class ConvertM1M2
 (t(hrow|r(ait|y)))|
 (u(nset|se))|
 (__halt_compiler|break|list|(x)?or|var|while)
+|map|data
 )$#ix';
 
     protected function _getReplaceMaps()
@@ -137,6 +120,7 @@ class ConvertM1M2
                 'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
                 'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
                 'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
+                'Mage_Adminhtml_Model_System_Store' => 'Magento_Store_Model_System_Store',
                 'Mage_Adminhtml_' => 'Magento_Backend_',
                 'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
                 'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
@@ -219,11 +203,12 @@ class ConvertM1M2
 
     protected $_autoloadMode = 'm1';
 
-    public function __construct($rootDir, $mageDir, $outputDir)
+    public function __construct($rootDir, $mage1Dir, $mage2Dir)
     {
         $this->_env['source_dir'] = str_replace('\\', '/', $rootDir);
-        $this->_env['mage1_dir'] = str_replace('\\', '/', $mageDir);
-        $this->_env['output_dir'] = str_replace('\\', '/', $outputDir);
+        $this->_env['mage1_dir'] = str_replace('\\', '/', $mage1Dir);
+        $this->_env['mage2_dir'] = str_replace('\\', '/', $mage2Dir);
+        $this->_env['mage2_code_dir'] = $this->_env['mage2_dir'] . '/app/code';
 
         spl_autoload_register([$this, 'autoloadCallback']);
 
@@ -242,8 +227,8 @@ class ConvertM1M2
             "{$this->_env['mage1_dir']}/app/code/local",
         ];
         $m2Pools = [
-            "{$this->_env['output_dir']}/../../lib/internal",
-            "{$this->_env['output_dir']}",
+            "{$this->_env['mage2_dir']}/lib/internal",
+            "{$this->_env['mage2_code_dir']}",
         ];
         switch ($this->_autoloadMode) {
             case 'm1':
@@ -315,7 +300,7 @@ class ConvertM1M2
         }
         $this->_env['ext_root_dir'] = $rootDir . '/' . $extName;
         #$this->_env['ext_output_dir'] = $rootDir . '/output/' . $extName;
-        $this->_env['ext_output_dir'] = $this->_env['output_dir'] . '/' . str_replace('_', '/', $extName);
+        $this->_env['ext_output_dir'] = $this->_env['mage2_code_dir'] . '/' . str_replace('_', '/', $extName);
 
         $this->_fileCache = [];
 
@@ -1647,6 +1632,7 @@ EOT;
     {
         $dir = $this->_expandSourcePath("@EXT/{$folder}");
         $files = $this->_findFilesRecursive($dir);
+        sort($files);
         $targetDir = $this->_expandOutputPath($folder);
         $fromName = array_keys($this->_replace['files']);
         $toName = array_values($this->_replace['files']);
@@ -1725,6 +1711,7 @@ EOT;
         $classPattern = '#^((final|abstract)\s+)?class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)(extends|implements)\s|\s*$)?#ms';
         #$contents = preg_replace($classPattern, "namespace \$3;\n\n\$1\$2class \$4\$5", $contents);
         if (preg_match($classPattern, $contents, $m)) {
+            $this->_currentFile['namespace'] = $m[3];
             $this->_currentFile['class'] = $m[3] . '\\' . $m[4];
             $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}class {$m[4]}{$m[5]}", $contents);
         }
@@ -1777,7 +1764,7 @@ EOT;
         return $contents;
     }
 
-    protected function _convertCodeParseMethods($contents, $isController = false)
+    protected function _convertCodeParseMethods($contents, $isController = false, $returnResult = false)
     {
         $nl = $this->_currentFile['nl'];
 
@@ -1796,7 +1783,7 @@ EOT;
         if (null === $classStart) { // not a class
             $this->_currentFile['methods'] = [];
             $this->_currentFile['lines'] = $lines;
-            return $contents;
+            return $returnResult ? [] : $contents;
         }
 
         // Find starts of all methods
@@ -1814,7 +1801,7 @@ EOT;
         if (!$methods) {
             $this->_currentFile['methods'] = [];
             $this->_currentFile['lines'] = $lines;
-            return $contents;
+            return $returnResult ? [] : $contents;
         }
 
         $lastMethodIdx = sizeof($methods) - 1;
@@ -1879,13 +1866,17 @@ EOT;
             $contents = join($nl, $lines);
             $contents = preg_replace('#^(\s*)(class\s+.*)$#m', '$1abstract $2', $contents);
         }
+        if ($returnResult) {
+            return $methods;
+        }
+
         $this->_currentFile['methods'] = $methods;
         $this->_currentFile['lines'] = $lines;
 
         return $contents;
     }
 
-    protected function _convertCodeObjectManagerToDI($contents, $context = null)
+    protected function _convertCodeObjectManagerToDI($contents)
     {
         $construct = null;
 
@@ -1894,42 +1885,18 @@ EOT;
             return $contents;
         }
         $propertyLines = [];
-        $constructArgs = [];
         $constructLines = [];
-        $constructParentArgs = [];
         $pad = '    ';
-        $declared = [];
 
-        if (!$context) {
-            $filename = $this->_currentFile['filename'];
-            if (preg_match('#Controller\.php$#', $filename)) {
-                $context = 'controller';
-            } elseif (preg_match('#/Model/(Mysql4|Resource)/#', $filename)) {
-                $context = 'resourceModel';
-            } elseif (preg_match('#/Helper/#', $filename)) {
-                $context = 'helper';
-            }
-        }
-        $optionalArgs = false;
-        if ($context) {
-            if (!empty($this->_diDefaultArgs[$context])) {
-                foreach ($this->_diDefaultArgs[$context] as $var => $arg) {
-                    if (!preg_match('#(\$[A-Za-z0-9_]+)(\s*=)?#', $arg, $m)) {
-                        var_dump($arg, $m);
-                    }
-                    $constructArgs[] = $arg;
-                    $constructParentArgs[] = $m[1];
-                    if (!empty($m[2])) {
-                        $optionalArgs = true;
-                    }
-                }
-            }
-            $contextMethod = '_convertDIContext' . ucfirst($context);
-            if (method_exists($this, $contextMethod)) {
-                $this->{$contextMethod}($constructArgs, $constructParentArgs);
-            }
-        }
-
+        $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
+        $constructArgs = $parentArgs['args'];
+        $constructParentArgs = $parentArgs['parent_args'];
+        $optionalArgs = $parentArgs['optional'];
+        $hasParent = $parentArgs['has_parent'];
+        $declared = $parentArgs['classes'];
+        //*/
+        //var_dump($constructArgs, $constructParentArgs);
+#echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($declared);
         foreach ($matches as $m) {
             $class = $m[1];
             if (!empty($declared[$class])) {
@@ -1954,42 +1921,149 @@ EOT;
 
             $contents = str_replace($m[0], "\$this->_{$var}", $contents);
         }
+//echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($constructArgs, $constructParentArgs);
 
         $nl = $this->_currentFile['nl'];
-        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+\s+[^{]*\{#ms';
+        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+\s+[^{]*\{#m';
         $classStartWith = "\$0{$nl}" . join($nl, $propertyLines);
         $argsStr = join(", {$nl}{$pad}{$pad}", $constructArgs);
         $assignStr = join($nl, $constructLines);
+        $constructParentArgsStr = join(', ', $constructParentArgs);
         if (preg_match('#^(\s*public\s+function\s+__construct\()(.*?)(\)\s+\{)#ms', $contents, $m)) {
             $comma = !empty($m[2]) ? ', ' : '';
             $contents = str_replace($m[0], "{$m[1]}{$m[2]}{$comma}{$argsStr}{$m[3]}{$nl}{$assignStr}{$nl}", $contents);
+            $contents = preg_replace_callback('#(parent::__construct\()\s*(.)#', function($m) use ($constructParentArgsStr) {
+                return $m[1] . $constructParentArgsStr . ($m[2] !== ')' ? ', ' : '') . $m[2];
+            }, $contents);
         } else {
-            $constructParentArgsStr = join(', ', $constructParentArgs);
-            $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}" .
-                "{$nl}{$pad}{$pad}parent::__construct({$constructParentArgsStr});{$nl}{$pad}}{$nl}";
+            $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}";
+            if ($hasParent) {
+                $classStartWith .= "{$nl}{$pad}{$pad}parent::__construct({$constructParentArgsStr});";
+            }
+            $classStartWith .= "{$nl}{$pad}}{$nl}";
         }
         $contents = preg_replace($classStartRe, $classStartWith, $contents);
 
         return $contents;
     }
 
+    protected function _convertDIGetParentConstructArgs($contents)
+    {
+        $result = [
+            'args' => [],
+            'parent_args' => [],
+            'classes' => [],
+            'optional' => false,
+            'has_parent' => false,
+        ];
+        if (!preg_match('#^\s*((abstract|final)\s+)?class\s+([^\s]+)\s+extends\s+([^\s]+)#m', $contents, $m)) {
+            return $result;
+        }
+
+        $parentClass = $m[4];
+
+        static $cache = [];
+        if (!empty($cache[$parentClass])) {
+            return $cache[$parentClass];
+        }
+
+        $parentFile = str_replace('\\', '/', $parentClass) . '.php';
+        if (strpos($parentClass, '\\Magento\\Framework\\') === 0) {
+            $parentFile = $this->_env['mage2_dir'] . '/lib/internal' . $parentFile;
+        } else {
+            $parentFile = $this->_env['mage2_code_dir'] . $parentFile;
+        }
+        $parentContents = file_get_contents($parentFile);
+        $parentMethods = $this->_convertCodeParseMethods($parentContents, false, true);
+        $parentConstruct = null;
+        foreach ($parentMethods as $method) {
+            if ($method['name'] === '__construct') {
+                $parentConstruct = $method;
+                break;
+            }
+        }
+        if (!$parentConstruct) {
+            return $result;
+        }
+        $result['has_parent'] = true;
+        $mode = 1;
+        $argLines = [];
+        foreach ($parentConstruct['lines'] as $i => $line) {
+            if ($mode === 1 && preg_match('#function\s+__construct\s*\(\s*(.*)$#', $line, $m)) {
+                $argLines[] = $m[1];
+                $mode = 2;
+                continue;
+            }
+            if ($mode === 2) {
+                $argLines[] = $line;
+                if (preg_match('#\{\s*$#', $line)) {
+                    break;
+                }
+            }
+        }
+        $argsStr = preg_replace('#\)\s*\{#', '', join(' ', $argLines));
+        if (!preg_match_all('#([\\\\A-Za-z0-9]+)\s+(\$[A-Za-z0-9_]+)([^,]*)#m', $argsStr, $matches, PREG_SET_ORDER)) {
+            return $result;
+        }
+        $parentUseClasses = null;
+        $parentNamespace = null;
+        $useLineRe = '#^\s*use\s+([\\\\A-Za-z0-9]+\\\\([A-Za-z0-9]+))(\s+as\s+([A-Za-z0-9]+))?\s*;$#m';
+#echo '<hr>' . $this->_currentFile['class'] . ', ' . $parentClass . '<br>';
+        foreach ($matches as $m) {
+            $argClass = $m[1];
+            if ($argClass !== 'array' && $argClass[0] !== '\\') {
+                if ($parentUseClasses === null) {
+                    $parentUseClasses = [];
+                    if (preg_match_all($useLineRe, $parentContents, $parentUseMatches, PREG_SET_ORDER)) {
+#var_dump($parentUseMatches);
+                        foreach ($parentUseMatches as $m1) {
+                            $alias = !empty($m1[4]) ? $m1[4] : $m1[2];
+                            $parentUseClasses[$alias] = $m1[1];
+                        }
+                    }
+                }
+
+#var_dump($parentUseClasses);
+                if (!empty($parentUseClasses[$argClass])) {
+                    $argClass = $parentUseClasses[$argClass];
+                } else {
+                    if ($parentNamespace === null) {
+                        $parentClassArr = explode('\\', $parentClass);
+                        array_pop($parentClassArr);
+                        $parentNamespace = join('\\', $parentClassArr);
+                    }
+                    $argClass = $parentNamespace . '\\' . $argClass;
+                }
+            }
+            $result['classes'][ltrim($argClass, '\\')] = 1;
+            $result['args'][] = $argClass . ' ' . $m[2] . $m[3];
+            $result['parent_args'][] = $m[2];
+        }
+        $result['optional'] = strpos($argsStr, '=') !== false;
+        $cache[$parentClass] = $result;
+        return $result;
+    }
+
     protected function _convertNamespaceUse($contents)
     {
+        #return $contents;
+
         if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
             return $contents;
         }
         $namespaceLine = $m[0];
         $namespace = '\\' . $m[1];
-        if (!preg_match('#^\s*class\s+([^\s]+)#m', $contents, $m)) {
+        if (!preg_match('#^\s*((abstract|final)\s+)?class\s+([^\s]+)#m', $contents, $m)) {
             return $contents;
         }
-        $fileAlias = $m[1];
-        $fileClass = $namespace . '\\' . $m[1];
-        if (!preg_match_all('#[^\\\\A-Za-z0-9]((\\\\([A-Za-z0-9]+))+)(\s*\*/)?#', $contents, $matches, PREG_SET_ORDER)) {
+        $fileAlias = $m[3];
+        $fileClass = $namespace . '\\' . $m[3];
+        if (!preg_match_all('#[^\\\\A-Za-z0-9]((\\\\([A-Za-z0-9]+))+)(\s*\*/)?#m', $contents, $matches, PREG_SET_ORDER)) {
             return $contents;
         }
         $mapByClass = [];
         $mapByAlias = [$fileAlias => $fileClass];
+
         $useLines = [];
         foreach ($matches as $m) {
             if (!empty($m[4])) {
@@ -2115,9 +2189,12 @@ EOT;
 
         $extDir = str_replace('_', '/', $extName);
 
-        $files = $this->_findFilesRecursive("{$this->_env['output_dir']}/{$extDir}");
+        $files = $this->_findFilesRecursive("{$this->_env['mage2_code_dir']}/{$extDir}");
         foreach ($files as $file) {
             if ('php' !== pathinfo($file, PATHINFO_EXTENSION)) {
+                continue;
+            }
+            if (strpos($file, 'registration.php') !== false) {
                 continue;
             }
             $class = str_replace(['/', '.php'], ['\\', ''], "{$extDir}/{$file}");
