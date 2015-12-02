@@ -2164,6 +2164,10 @@ EOT;
         } else {
             $parentPath = $this->_env['mage2_code_dir'] . $parentFile;
         }
+        if (!file_exists($parentPath)) {
+            $this->log("[WARN] Could not find a parent class file: {$parentPath} ({$this->_currentFile['filename']})");
+            return false;
+        }
         $parentContents = file_get_contents($parentPath);
 
         if (preg_match('#function\s+__construct\s*\(#', $parentContents)) {
