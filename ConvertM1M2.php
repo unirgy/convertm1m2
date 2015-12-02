@@ -2174,7 +2174,12 @@ EOT;
                 }
             }
             if ($autoloaded) {
-                $refl = new ReflectionClass($parentClass);
+                try {
+                    $refl = new ReflectionClass($parentClass);
+                } catch (Exception $e) {
+                    $this->log("[WARN] Reflection Exception: " . $e->getMessage());
+                    $refl = false;
+                }
                 $parentPath = $refl ? $refl->getFileName() : false;
             }
         }
