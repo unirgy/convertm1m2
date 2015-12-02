@@ -2175,7 +2175,7 @@ EOT;
             }
             if ($autoloaded) {
                 $refl = new ReflectionClass($parentClass);
-                $parentPath = $refl->getFileName();
+                $parentPath = $refl ? $refl->getFileName() : false;
             }
         }
         if (!$parentPath || !file_exists($parentPath)) {
