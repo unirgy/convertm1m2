@@ -2139,6 +2139,7 @@ EOT;
     protected function _convertFindParentConstruct($contents, $first = true)
     {
         static $cache = [];
+        static $autoloaded = false;
 
         if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
             return $contents;
@@ -2165,6 +2166,19 @@ EOT;
             $parentPath = $this->_env['mage2_code_dir'] . $parentFile;
         }
         if (!file_exists($parentPath)) {
+            if (!$autoloaded) {
+                $autoloadFile = realpath($this->_env['mage2_dir'] . '/vendor/autoload.php');
+                if (file_exists($autoloadFile)) {
+                    include_once($autoloadFile);
+                    $autoloaded = true;
+                }
+            }
+            if ($autoloaded) {
+                $refl = new ReflectionClass($parentClass);
+                $parentPath = $refl->getFileName();
+            }
+        }
+        if (!$parentPath || !file_exists($parentPath)) {
             $this->log("[WARN] Could not find a parent class file: {$parentPath} ({$this->_currentFile['filename']})");
             return false;
         }
