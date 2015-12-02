@@ -115,33 +115,46 @@ class ConvertM1M2
                 'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
+                'Mage_Adminhtml_Block_Messages' => 'Magento_Framework_View_Element_Messages',
+                'Mage_Adminhtml_Block_Report_Filter_Form' => 'Magento_Reports_Block_Adminhtml_Filter_Form',
+                'Mage_Adminhtml_Block_System_Config_Form_Field_Array_Abstract' => 'Magento_Config_Block_System_Config_Form_Field_FieldArray_AbstractFieldArray',
                 'Mage_Adminhtml_Block_Text_List' => 'Magento_Backend_Block_Text_ListText',
                 'Mage_Adminhtml_Block_System_Config_' => 'Magento_Config_Block_System_Config_',
+                'Mage_Adminhtml_Block_System_Variable' => 'Magento_Variable_Block_System_Variable',
+                'Mage_Adminhtml_Block_Checkout_Agreement_' => 'Magento_CheckoutAgreements_Block_Adminhtml_Agreement_',
                 'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
                 'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
                 'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
                 'Mage_Adminhtml_Model_System_Store' => 'Magento_Store_Model_System_Store',
+                'Mage_Adminhtml_Controller_System_Config_System_Storage' => 'Magento_Config_Controller_Adminhtml_System_Config_System_Storage',
+                'Mage_Adminhtml_Controller_Checkout_Agreement' => 'Magento_Checkout_Controller_Adminhtml_Agreement',
                 'Mage_Adminhtml_' => 'Magento_Backend_',
                 'Mage_Admin_Model_Acl' => 'Magento_Framework_Acl',
                 'Mage_Admin_Model_Roles' => 'Magento_Authorization_Model_Role',
+                'Mage_Admin_Model_Resource_Roles_Collection' => 'Magento_Authorization_Model_ResourceModel_Role_Collection',
                 'Mage_Admin_' => 'Magento_Backend_',
+                'Mage_MediaStorage_Controller_System_Config_System_Storage' => 'Magento_MediaStorage_Controller_Adminhtml_System_Config_System_Storage',
                 'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
+                'Mage_Rule_Model_Rule' => 'Magento_Rule_Model_AbstractModel',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
                 'Varien_Object' => 'Magento_Framework_DataObject',
                 'Varien_' => 'Magento_Framework_',
-                '_Mysql4_' => '_ResourceModel_',
-                '_Resource_' => '_ResourceModel_',
+                '_Model_Mysql4_' => '_Model_ResourceModel_',
+                '_Model_Resource_' => '_Model_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
                 'Zend_Db' => 'Magento_Framework_Db',
             ],
             'classes_regex' => [
-                '#_([A-Za-z0-9]+)_(Abstract|New)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
+                '#_([A-Za-z0-9]+)_(Abstract|New|List)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
+                '#_([A-Za-z0-9]+)_(Interface)([^A-Za-z0-9_]|$)#' => '_\1_\1\2\3',
                 '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
-                '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
+                #'#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
                 '#(Mage_Adminhtml|Magento_Backend)_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
+                '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\2_Adminhtml_Promo_Quote',
+                '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\2_Adminhtml_Promo_\3',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -183,8 +196,8 @@ class ConvertM1M2
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
-                'admin/sales' => 'Magento_Sales:sales',
-                'admin/reports' => 'Magento_Reports:report',
+                'admin/sales' => 'Magento_Sales::sales',
+                'admin/reports' => 'Magento_Reports::report',
                 'admin/system' => 'Magento_Backend::stores',
                 'admin/system/config' => ['Magento_Backend::stores_settings', 'Magento_Config::config'],
             ],
@@ -192,10 +205,11 @@ class ConvertM1M2
                 'sales' => 'Magento_Sales::sales',
                 'report' => 'Magento_Reports:report',
             ],
-            'files' => [
-                '/Model/Mysql4/' => '/Model/ResourceModel/',
-                '/Model/Resource/' => '/Model/ResourceModel/',
-                '/Protected.php' => '/ProtectedCode.php',
+            'files_regex' => [
+                '#/Model/(Mysql4|Resource)/#' => '/Model/ResourceModel/',
+                '#/Protected\.php#' => '/ProtectedCode.php',
+                '#/([A-Za-z0-9]+)/(Abstract|New|List)([^A-Za-z0-9/]|$)#' => '/\1/\2\1\3',
+                '#/([A-Za-z0-9]+)/(Interface)([^A-Za-z0-9/]|$)#' => '/\1/\1\2\3',
             ],
         ];
     }
@@ -324,6 +338,7 @@ class ConvertM1M2
         $this->_convertAllWebAssets();
         $this->_convertAllI18n();
         $this->_convertAllOtherFiles();
+        $this->_convertAllPhpFilesDI();
 
         $this->log("[SUCCESS] FINISHED: {$extName}")->log('');
 
@@ -787,9 +802,14 @@ EOT;
                     $attr['id'] = $aclId;
                 }
             } else {
-                list(, $parentId) = explode('::', $targetXml['id']);
-                #$parentId = $parentIdArr[sizeof($parentIdArr) - 1];
-                $attr['id'] = "{$this->_env['ext_name']}::{$parentId}_{$key}";
+                $aclIdArr = explode('::', $targetXml['id']);
+                if (sizeof($aclIdArr) === 2) {
+                    $parentId = $aclIdArr[1];
+                    $attr['id'] = "{$this->_env['ext_name']}::{$parentId}_{$key}";
+                } else {
+                    $this->log('[WARN] Invalid parent ACL id: ' . $targetXml['id']);
+                    $attr['id'] = "{$this->_env['ext_name']}::UNKNOWN_{$key}";
+                }
             }
             if (!empty($sourceNode->title)) {
                 $attr['title'] = $sourceNode->title;
@@ -1730,8 +1750,8 @@ EOT;
                 if ('php' === $fileExt) {
                     $contents = $this->_readFile($file);
                     $contents = $this->_convertCodeContents($contents);
-                    $contents = $this->_convertCodeObjectManagerToDI($contents);
-                    $contents = $this->_convertNamespaceUse($contents);
+                    #$contents = $this->_convertCodeObjectManagerToDI($contents);
+                    #$contents = $this->_convertNamespaceUse($contents);
                     $this->_writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
@@ -1746,8 +1766,8 @@ EOT;
         $files = $this->_findFilesRecursive($dir);
         sort($files);
         $targetDir = $this->_expandOutputPath($folder);
-        $fromName = array_keys($this->_replace['files']);
-        $toName = array_values($this->_replace['files']);
+        $fromName = array_keys($this->_replace['files_regex']);
+        $toName = array_values($this->_replace['files_regex']);
         foreach ($files as $filename) {
             $contents = $this->_readFile("{$dir}/{$filename}");
             $targetFile = "{$targetDir}/{$filename}";
@@ -1756,9 +1776,9 @@ EOT;
                 $contents = call_user_func($callback, $contents, $params);
             } else {
                 $contents = $this->_convertCodeContents($contents);
-                $contents = $this->_convertCodeObjectManagerToDI($contents);
-                $contents = $this->_convertNamespaceUse($contents);
-                $targetFile = str_replace($fromName, $toName, $targetFile);
+                #$contents = $this->_convertCodeObjectManagerToDI($contents);
+                #$contents = $this->_convertNamespaceUse($contents);
+                $targetFile = preg_replace($fromName, $toName, $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
         }
@@ -2142,7 +2162,7 @@ EOT;
         static $autoloaded = false;
 
         if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
-            return $contents;
+            return false;
         }
         $parentNamespace = $m[1];
 
@@ -2174,6 +2194,7 @@ EOT;
                 }
             }
             if ($autoloaded) {
+
                 try {
                     $refl = new ReflectionClass($parentClass);
                 } catch (Exception $e) {
@@ -2340,8 +2361,8 @@ EOT;
 
         if (strpos($file, 'Controller.php') === false) {
             $contents = $this->_convertCodeContents($contents);
-            $contents = $this->_convertCodeObjectManagerToDI($contents);
-            $contents = $this->_convertNamespaceUse($contents);
+            #$contents = $this->_convertCodeObjectManagerToDI($contents);
+            #$contents = $this->_convertNamespaceUse($contents);
             $this->_writeFile($targetFile, $contents, false);
             return;
         }
@@ -2349,8 +2370,8 @@ EOT;
         #$this->log('CONTROLLER: ' . $origClass);
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, true);
-        $contents = $this->_convertCodeObjectManagerToDI($contents);
-        $contents = $this->_convertNamespaceUse($contents);
+        #$contents = $this->_convertCodeObjectManagerToDI($contents);
+        #$contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -2370,13 +2391,31 @@ EOT;
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
-            $classContents = $this->_convertCodeObjectManagerToDI($classContents);
-            $classContents = $this->_convertNamespaceUse($classContents);
+            #$classContents = $this->_convertCodeObjectManagerToDI($classContents);
+            #$classContents = $this->_convertNamespaceUse($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
 
             $this->_writeFile($targetActionFile, $classContents, false);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////
+
+    protected function _convertAllPhpFilesDI()
+    {
+        $files = $this->_findFilesRecursive($this->_env['ext_output_dir']);
+        sort($files);
+        foreach ($files as $file) {
+            if ($file === 'registration.php' || 'php' !== pathinfo($file, PATHINFO_EXTENSION)) {
+                continue;
+            }
+            $fullFilename = "{$this->_env['ext_output_dir']}/{$file}";
+            $contents = file_get_contents($fullFilename);
+            $contents = $this->_convertCodeObjectManagerToDI($contents);
+            $contents = $this->_convertNamespaceUse($contents);
+            file_put_contents($fullFilename, $contents);
         }
     }
 
