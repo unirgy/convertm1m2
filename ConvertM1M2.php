@@ -138,9 +138,10 @@ class ConvertM1M2
                 'Zend_Db' => 'Magento_Framework_Db',
             ],
             'classes_regex' => [
-                '#_([A-Za-z0-9]+)_Abstract([^A-Za-z0-9_])#' => '_\1_Abstract\1\2',
+                '#_([A-Za-z0-9]+)_(Abstract|New)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
                 '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
                 '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
+                '#(Mage_Adminhtml|Magento_Backend)_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -205,9 +206,9 @@ class ConvertM1M2
 
     public function __construct($rootDir, $mage1Dir, $mage2Dir)
     {
-        $this->_env['source_dir'] = str_replace('\\', '/', $rootDir);
-        $this->_env['mage1_dir'] = str_replace('\\', '/', $mage1Dir);
-        $this->_env['mage2_dir'] = str_replace('\\', '/', $mage2Dir);
+        $this->_env['source_dir']     = str_replace('\\', '/', $rootDir);
+        $this->_env['mage1_dir']      = str_replace('\\', '/', $mage1Dir);
+        $this->_env['mage2_dir']      = str_replace('\\', '/', $mage2Dir);
         $this->_env['mage2_code_dir'] = $this->_env['mage2_dir'] . '/app/code';
 
         if (!is_dir($this->_env['source_dir'])) {
@@ -254,7 +255,7 @@ class ConvertM1M2
         }
         foreach ($pools as $pool) {
             $classFile = str_replace(['_', '\\'], ['/', '/'], $class);
-            $filename = "{$pool}/{$classFile}.php";
+            $filename  = "{$pool}/{$classFile}.php";
             if (file_exists($filename)) {
                 include_once $filename;
                 $this->_classFileCache[$class] = $filename;
@@ -332,10 +333,10 @@ class ConvertM1M2
     public function log($msg, $continue = false)
     {
         static $htmlColors = [
-            'ERROR'   => 'red',
-            'WARN'    => 'orange',
-            'INFO'    => 'black',
-            'DEBUG'   => 'gray',
+            'ERROR' => 'red',
+            'WARN' => 'orange',
+            'INFO' => 'black',
+            'DEBUG' => 'gray',
             'SUCCESS' => 'green',
         ];
         if (!is_scalar($msg)) {
@@ -365,7 +366,7 @@ class ConvertM1M2
             $path = $this->_env['ext_root_dir'] . '/' . $path;
         }
         $target = 'app/code/' . $this->_env['ext_pool'] . '/' . str_replace('_', '/', $this->_env['ext_name']) . '/';
-        $path = str_replace('@EXT/', $target, $path);
+        $path   = str_replace('@EXT/', $target, $path);
         return $path;
     }
 
@@ -441,6 +442,7 @@ class ConvertM1M2
 
         copy($src, $dst);
     }
+
     protected function _copyRecursive($src, $dst, $expand = false)
     {
         if ($expand) {
@@ -501,8 +503,8 @@ class ConvertM1M2
             return [];
         }
         $dirIter = new RecursiveDirectoryIterator($dir);
-        $iter = new RecursiveIteratorIterator($dirIter, RecursiveIteratorIterator::SELF_FIRST);
-        $files = [];
+        $iter    = new RecursiveIteratorIterator($dirIter, RecursiveIteratorIterator::SELF_FIRST);
+        $files   = [];
         foreach ($iter as $file) {
             if (!is_dir((string)$file)) {
                 $files[] = str_replace($dir . '/', '', str_replace('\\', '/', (string)$file));
@@ -540,7 +542,7 @@ class ConvertM1M2
         $layoutFiles = glob($this->_env['mage1_dir'] . '/app/design/*/*/*/layout/*.xml');
         foreach ($layoutFiles as $file) {
             preg_match('#/app/design/([^/]+)/([^/]+/[^/]+)#', $file, $m);
-            $xml = simpledom_load_file($file);
+            $xml    = simpledom_load_file($file);
             $blocks = $xml->xpath('//block');
             foreach ($blocks as $blockNode) {
                 if ($blockNode['type'] && $blockNode['name']) {
@@ -582,11 +584,11 @@ class ConvertM1M2
         $className = $this->_aliases[$type][$moduleKey] . '_' . $classKeyCapped;
 
         if ($m2) {
-            $classTr = $this->_replace['classes'];
-            $className = str_replace(array_keys($classTr), array_values($classTr), $className);
+            $classTr      = $this->_replace['classes'];
+            $className    = str_replace(array_keys($classTr), array_values($classTr), $className);
             $classRegexTr = $this->_replace['classes_regex'];
-            $className = preg_replace(array_keys($classRegexTr), array_values($classRegexTr), $className);
-            $className = str_replace('_', '\\', $className);
+            $className    = preg_replace(array_keys($classRegexTr), array_values($classRegexTr), $className);
+            $className    = str_replace('_', '\\', $className);
         }
 
         return $className;
@@ -695,7 +697,7 @@ EOT;
     {
         $extName = $this->_env['ext_name'];
         $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
-        $xml2 = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
+        $xml2    = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
 
         $resultXml = $this->_createConfigXml('urn:magento:framework:Module/etc/module.xsd');
         $targetXml = $resultXml->addChild('module');
@@ -705,8 +707,8 @@ EOT;
         }
         if (!empty($xml2->modules->{$extName}->depends)) {
             $sequenceXml = $targetXml->addChild('sequence');
-            $from = array_keys($this->_replace['modules']);
-            $to = array_values($this->_replace['modules']);
+            $from        = array_keys($this->_replace['modules']);
+            $to          = array_values($this->_replace['modules']);
             foreach ($xml2->modules->{$extName}->depends->children() as $depName => $_) {
                 $depName = str_replace($from, $to, $depName);
                 $sequenceXml->addChild('module')->addAttribute('name', $depName);
@@ -845,9 +847,9 @@ EOT;
                     continue;
                 }
                 foreach ($mNode->rewrite->children() as $classKey => $cNode) {
-                    $origClass = $this->_getClassName($type, $moduleKey . '/' . $classKey);
+                    $origClass   = $this->_getClassName($type, $moduleKey . '/' . $classKey);
                     $targetClass = str_replace('_', '\\', (string)$cNode);
-                    $prefNode = $resultXml->addChild('preference');
+                    $prefNode    = $resultXml->addChild('preference');
                     $prefNode->addAttribute('for', $origClass);
                     $prefNode->addAttribute('type', $targetClass);
                 }
@@ -959,16 +961,16 @@ EOT;
         if (!empty($xml->admin->routers->adminhtml->args->modules)) {
             $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
 
-            $routerName = 'admin';
+            $routerName    = 'admin';
             $targetRouters = [];
-            $moduleFrom = array_keys($this->_replace['modules']);
-            $moduleTo = array_values($this->_replace['modules']);
+            $moduleFrom    = array_keys($this->_replace['modules']);
+            $moduleTo      = array_values($this->_replace['modules']);
             foreach ($xml->admin->routers->adminhtml->args->modules->children() as $routeName => $routeNode) {
                 if (empty($targetRouters[$routerName])) {
                     $targetRouters[$routerName] = $resultXml->addChild('router');
                     $targetRouters[$routerName]->addAttribute('id', $routerName);
                 }
-                $routeId = preg_replace('#admin$#', '', $routeName);
+                $routeId    = preg_replace('#admin$#', '', $routeName);
                 $moduleName = str_replace($moduleFrom, $moduleTo, (string)$routeNode);
 
                 $targetRouteNode = $targetRouters[$routerName]->addChild('route');
@@ -1023,7 +1025,7 @@ EOT;
                 $attr['id'] = $this->_env['ext_name'] . '::' . $key;
             }
             $attr['resource'] = $attr['id'];
-            $attr['module'] = $this->_env['ext_name'];
+            $attr['module']   = $this->_env['ext_name'];
 
             foreach (['title' => 'title', 'sort_order' => 'sortOrder', 'action' => 'action'] as $src => $tgt) {
                 if (!empty($srcNode->{$src})) {
@@ -1101,7 +1103,7 @@ EOT;
     protected function _convertConfigSystemNode($type, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         $targetNode = $targetXml->addChild($type);
-        $attr = ['id' => $sourceXml->getName()];
+        $attr       = ['id' => $sourceXml->getName()];
         if (!empty($sourceXml['translate'])) {
             $attr['translate'] = (string)$sourceXml['translate'];
         }
@@ -1311,7 +1313,7 @@ EOT;
                     $targetPageTypeNode = $renderersXml->addChild('page');
                     $targetPageTypeNode->addAttribute('type', $type);
                     foreach ($typeNode->children() as $prodType => $prodTypeNode) {
-                        $className = $this->_getClassName('models', (string)$prodTypeNode);
+                        $className          = $this->_getClassName('models', (string)$prodTypeNode);
                         $targetProdTypeNode = $targetPageTypeNode->addChild('renderer', $className);
                         $targetProdTypeNode->addAttribute('product_type', $prodType);
                     }
@@ -1326,7 +1328,107 @@ EOT;
 
     protected function _convertConfigWidget()
     {
+        /** @var SimpleDOM $xml */
+        $xml = $this->_readFile("@EXT/etc/widget.xml", true);
 
+        if ($xml) {
+            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Widget:etc/widget.xsd', 'widgets');
+
+            foreach ($xml->children() as $widgetName => $widgetNode) {
+                $widgetXml = $resultXml->addChild('widget');
+                $widgetXml->addAttribute('id', $widgetName);
+                $widgetXml->addAttribute('class', $this->_getClassName('blocks', $widgetNode['type']));
+                $widgetXml->addAttribute('is_email_compatible', (bool)$widgetNode->is_email_compatible ? 'true' : 'false');
+                $labelXml = $widgetXml->addChild('label', (string)$widgetNode->name);
+                $labelXml->addAttribute('translate', 'true');
+                $descXml = $widgetXml->addChild('description', (string)$widgetNode->description);
+                $descXml->addAttribute('translate', 'true');
+                $paramsXml = $widgetXml->addChild('parameters');
+
+                if (empty($widgetNode->parameters)) {
+                    continue;
+                }
+                foreach ($widgetNode->parameters->children() as $paramName => $paramNode) {
+                    $paramXml = $paramsXml->addChild('parameter');
+                    $paramXml->addAttribute('name', $paramName);
+                    $paramType = !empty($paramNode->helper_block) ? 'block' : (string)$paramNode->type;
+                    $paramXml->addAttribute('xsi:type', $paramType, $this->_schemas['@XSI']);
+                    if ((bool)$paramNode->required) {
+                        $paramXml->addAttribute('required', (bool)$paramNode->required ? 'true' : 'false');
+                    }
+                    $paramXml->addAttribute('visible', (bool)$paramNode->visible ? 'true' : 'false');
+                    $labelXml = $paramXml->addChild('label', (string)$paramNode->label);
+                    $labelXml->addAttribute('translate', 'true');
+                    if (!empty($paramNode->description)) {
+                        $descXml = $paramXml->addChild('description', (string)$paramNode->description);
+                        $descXml->addAttribute('translate', 'true');
+                    }
+                    if (!empty($paramNode->source_model)) {
+                        $sourceModel = $this->_getClassName('models', (string)$paramNode->source_model);
+                        $paramXml->addAttribute('source_model', $sourceModel);
+                    }
+                    if (!empty($paramNode->depends)) {
+                        $dependsXml = $paramXml->addChild('depends');
+                        foreach ($paramNode->depends->children() as $depName => $depNode) {
+                            $depParamXml = $dependsXml->addChild('parameter');
+                            $depParamXml->addAttribute('name', $depName);
+                            $depParamXml->addAttribute('value', (string)$depNode->value);
+                        }
+                    }
+                    if (!empty($paramNode->values)) {
+                        $optionsXml = $paramXml->addChild('options');
+                        foreach ($paramNode->values->children() as $valueName => $valueNode) {
+                            $optionXml = $optionsXml->addChild('option');
+                            $optionXml->addAttribute('name', $valueName);
+                            $optionXml->addAttribute('value', (string)$valueNode->value);
+                            if ((string)$valueNode->value == (string)$paramNode->value) {
+                                $optionXml->addAttribute('selected', 'true');
+                            }
+                            $labelXml = $optionXml->addChild('label', (string)$valueNode->label);
+                            $labelXml->addAttribute('translate', 'true');
+                        }
+                    } elseif (!empty($paramNode->value)) {
+                        $paramXml->addChild('value', (string)$paramNode->value);
+                    }
+                    if (!empty($paramNode->helper_block)) {
+                        $blockXml   = $paramXml->addChild('block');
+                        $blockClass = $this->_getClassName('blocks', (string)$paramNode->helper_block->type);
+                        $blockXml->addAttribute('class', $blockClass);
+                        if (!empty($paramNode->helper_block->data)) {
+                            $dataXml = $blockXml->addChild('data');
+                            $this->_convertConfigWidgetDataRecursive($paramNode->helper_block->data, $dataXml);
+                        }
+                    }
+                }
+            }
+
+            $this->_writeFile('etc/widget.xml', $resultXml, true);
+        } else {
+            $this->_deleteFile('etc/widget.xml', true);
+        }
+    }
+
+    protected function _convertConfigWidgetDataRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    {
+        /**
+         * @var string $itemName
+         * @var SimpleXmlElement $itemNode
+         */
+        foreach ($sourceXml->children() as $itemName => $itemNode) {
+            if ($itemNode->children()) {
+                $itemXml = $targetXml->addChild('item');
+                $itemXml->addAttribute('xsi:type', 'array', $this->_schemas['@XSI']);
+                $this->_convertConfigWidgetDataRecursive($itemNode, $itemXml);
+            } else {
+                $itemValue = (string)$itemNode;
+                $itemXml = $targetXml->addChild('item', $itemValue);
+                $itemXml->addAttribute('xsi:type', 'string', $this->_schemas['@XSI']);
+                if (!is_numeric($itemValue)) {
+                    $itemXml->addAttribute('translate', 'true');
+                }
+            }
+            $itemXml->addAttribute('name', $itemName);
+        }
     }
 
     ///////////////////////////////////////////////////////////
