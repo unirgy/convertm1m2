@@ -137,6 +137,14 @@ class ConvertM1M2
                 'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_Rule_Model_Rule' => 'Magento_Rule_Model_AbstractModel',
+                'Mage_Usa_Block_Adminhtml_Dhl_' => 'Magento_Dhl_Block_Adminhtml_',
+                'Mage_Usa_Model_Shipping_Carrier_Dhl_Abstract' => 'Magento_Dhl_Model_AbstractDhl',
+                'Mage_Usa_Model_Shipping_Carrier_Dhl_International_' => 'Magento_Dhl_Model_',
+                'Mage_Usa_Model_Shipping_Carrier_Dhl_International' => 'Magento_Dhl_Model_Carrier',
+                'Mage_Usa_Model_Simplexml_Element' => 'Magento_Shipping_Model_Simplexml_Element',
+                'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier' => 'Magento_Shipping_Model_Carrier_AbstractCarrierOnline',
+                'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Mode' => 'Magento_Shipping_Model_Config_Source_Online_Mode',
+                'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Requesttype' => 'Magento_Shipping_Model_Config_Source_Online_Requesttype',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
                 'Varien_Object' => 'Magento_Framework_DataObject',
@@ -155,6 +163,8 @@ class ConvertM1M2
                 '#(Mage_Adminhtml|Magento_Backend)_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
                 '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\2_Adminhtml_Promo_Quote',
                 '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\2_Adminhtml_Promo_\3',
+                '#Mage_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
+                '#Mage_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -2205,7 +2215,7 @@ EOT;
             }
         }
         if (!$parentPath || !file_exists($parentPath)) {
-            $this->log("[WARN] Could not find a parent class file: {$parentPath} ({$this->_currentFile['filename']})");
+            $this->log("[WARN] Could not find a parent class file: {$parentPath} ({$parentClass} <- {$this->_currentFile['class']})");
             return false;
         }
         $parentContents = file_get_contents($parentPath);
@@ -2405,6 +2415,8 @@ EOT;
 
     protected function _convertAllPhpFilesDI()
     {
+        #spl_autoload_unregister([$this, 'autoloadCallback']);
+        $this->_autoloadMode = 'm2';
         $files = $this->_findFilesRecursive($this->_env['ext_output_dir']);
         sort($files);
         foreach ($files as $file) {
@@ -2413,10 +2425,18 @@ EOT;
             }
             $fullFilename = "{$this->_env['ext_output_dir']}/{$file}";
             $contents = file_get_contents($fullFilename);
+            $class = str_replace('_', '\\', $this->_env['ext_name']) . '\\' . str_replace(['/', '.php'], ['\\', ''], $file);
+            $this->_currentFile = [
+                'filename' => $fullFilename,
+                'class' => $class,
+                'nl' => preg_match('#(\\r\\n|\\r|\\n)#', $contents, $m) ? $m[0] : "\r\n",
+            ];
             $contents = $this->_convertCodeObjectManagerToDI($contents);
             $contents = $this->_convertNamespaceUse($contents);
             file_put_contents($fullFilename, $contents);
         }
+        $this->_autoloadMode = 'm1';
+        #spl_autoload_register([$this, 'autoloadCallback']);
     }
 
     ///////////////////////////////////////////////////////////
