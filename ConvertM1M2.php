@@ -342,6 +342,7 @@ class ConvertM1M2
         $this->_convertGenerateMetaFiles();
         $this->_convertAllConfigs();
         $this->_convertAllControllers();
+        $this->_convertAllObservers();
         $this->_convertAllMigrations();
         $this->_convertAllLayouts();
         $this->_convertAllTemplates();
@@ -941,8 +942,10 @@ EOT;
                     foreach ($eventNode->observers->children() as $obsName => $obsNode) {
                         $targetObsNode = $targetEventNode->addChild('observer');
                         $targetObsNode->addAttribute('name', $obsName);
-                        $targetObsNode->addAttribute('instance', $this->_getClassName('models', (string)$obsNode->class));
-                        $targetObsNode->addAttribute('method', (string)$obsNode->method);
+                        $instance = $this->_getClassName('models', (string)$obsNode->class) . '\\'
+                            . str_replace(' ', '', ucwords(str_replace('_', ' ', (string)$obsNode->method)));
+                        $targetObsNode->addAttribute('instance', $instance);
+                        #$targetObsNode->addAttribute('method', (string)$obsNode->method);
                         if ($obsNode->type == 'model') {
                             $targetObsNode->addAttribute('shared', 'false');
                         }
@@ -1745,7 +1748,7 @@ EOT;
         $targetDir = $this->_env['ext_output_dir'];
         foreach ($files as $file) {
             $basename = basename($file);
-            if ('etc' === $basename || 'controllers' === $basename || 'sql' === $basename) {
+            if ('etc' === $basename || 'controllers' === $basename || 'sql' === $basename || 'Observer.php' === $basename) {
                 continue;
             }
             $fileExt = strtolower(pathinfo($file, PATHINFO_EXTENSION));
@@ -1910,7 +1913,7 @@ EOT;
         return $contents;
     }
 
-    protected function _convertCodeParseMethods($contents, $isController = false, $returnResult = false)
+    protected function _convertCodeParseMethods($contents, $fileType = false, $returnResult = false)
     {
         $nl = $this->_currentFile['nl'];
 
@@ -1988,7 +1991,10 @@ EOT;
                     }
                 }
             }
-            for ($j = $method['start'] - 1; $j > ($i ? $method['end'] : $classStart); $j--) {
+        }
+        for ($i = $lastMethodIdx; $i >= 0; $i--) {
+            $method =& $methods[$i];
+            for ($j = $method['start'] - 1; $j > ($i ? $methods[$i - 1]['end'] : $classStart); $j--) {
                 if (empty($method['phpdoc_end'])) {
                     if (preg_match('#^\s*\*+/\s*$#', $lines[$j])) {
                         $method['phpdoc_end'] = $j;
@@ -2008,7 +2014,9 @@ EOT;
         for ($i = $lastMethodIdx; $i >= 0; $i--) {
             $method =& $methods[$i];
             $length = $method['end'] - $method['start'] + 1;
-            if ($isController && preg_match('#Action$#', $method['name'])) {
+            if ($fileType === 'controller' && preg_match('#Action$#', $method['name'])) {
+                $method['lines'] = array_splice($lines, $method['start'], $length);
+            } elseif ($fileType === 'observer' && preg_match('#^[A-Za-z]+_#', $method['name'])) {
                 $method['lines'] = array_splice($lines, $method['start'], $length);
             } else {
                 $method['lines'] = array_slice($lines, $method['start'], $length);
@@ -2016,7 +2024,7 @@ EOT;
         }
         unset($method);
 
-        if ($isController) {
+        if ($fileType === 'controller' || $fileType === 'observer') {
             $contents = join($nl, $lines);
             $contents = preg_replace('#^(\s*)(class\s+.*)$#m', '$1abstract $2', $contents);
         }
@@ -2379,7 +2387,7 @@ EOT;
 
         #$this->log('CONTROLLER: ' . $origClass);
         $contents = $this->_convertCodeContents($contents);
-        $contents = $this->_convertCodeParseMethods($contents, true);
+        $contents = $this->_convertCodeParseMethods($contents, 'controller');
         #$contents = $this->_convertCodeObjectManagerToDI($contents);
         #$contents = $this->_convertNamespaceUse($contents);
 
@@ -2408,6 +2416,64 @@ EOT;
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
 
             $this->_writeFile($targetActionFile, $classContents, false);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////
+
+    protected function _convertAllObservers()
+    {
+        //TODO: scan config.xml for observer callbacks?
+        $path = $this->_expandSourcePath('@EXT/Model/Observer.php');
+        if (file_exists($path)) {
+            $targetDir = $this->_expandOutputPath('Observer');
+            $this->_convertObserver($path, $targetDir);
+        }
+    }
+
+    protected function _convertObserver($sourceFile, $targetDir)
+    {
+        $contents = $this->_readFile($sourceFile);
+        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+([A-Za-z0-9_]+)(\s+extends\s+([A-Za-z0-9_]+))?#m';
+        if (!preg_match($classStartRe, $contents, $m)) {
+            $this->log('[WARN] Invalid observer class: ' . $sourceFile);
+            return;
+        }
+
+        $origClass = $m[3];
+        $abstractClass = str_replace('_Model_Observer', '_Observer_AbstractObserver', $origClass);
+
+        $contents = str_replace($origClass, $abstractClass, $contents);
+
+        #$this->log('CONTROLLER: ' . $origClass);
+        $contents = $this->_convertCodeContents($contents);
+        $contents = $this->_convertCodeParseMethods($contents, 'observer');
+        #$contents = $this->_convertCodeObjectManagerToDI($contents);
+        #$contents = $this->_convertNamespaceUse($contents);
+
+        $this->_writeFile($targetDir . '/AbstractObserver.php', $contents);
+
+        $nl = $this->_currentFile['nl'];
+        $funcRe = '#(public\s+function\s+)([a-zA-Z0-9_]+)(\([^)]+\))#';
+        $funcExecute = '$1execute(\Magento\Framework\Event\Observer \$observer)';
+        foreach ($this->_currentFile['methods'] as $method) {
+            if (!preg_match('#^[A-Za-z]+_#', $method['name'], $m)) {
+                continue;
+            }
+            $obsName = str_replace(' ', '', ucwords(str_replace('_', ' ', $method['name'])));
+            $obsClass = "{$origClass}_{$obsName}";
+            $methodContents = join($nl, $method['lines']);
+            $txt = preg_replace($funcRe, $funcExecute, $methodContents);
+            $classContents = "<?php{$nl}{$nl}class {$obsClass} extends {$abstractClass} implements "
+                ."\\Magento\\Framework\\Event\\ObserverInterface{$nl}{{$nl}{$txt}{$nl}}{$nl}";
+
+            $classContents = $this->_convertCodeContents($classContents);
+            #$classContents = $this->_convertCodeObjectManagerToDI($classContents);
+            #$classContents = $this->_convertNamespaceUse($classContents);
+
+            $targetObsFile = "{$targetDir}/{$obsName}.php";
+
+            $this->_writeFile($targetObsFile, $classContents, false);
         }
     }
 
