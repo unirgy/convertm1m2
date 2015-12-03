@@ -25,7 +25,8 @@ developers to have more time for tasks that can not be automated, such as:
   * **i18n** (copying only)
   * **Templates** (with some conversion - see below)
   * **Classes** (with some conversion - see below)
-  * **Controllers**
+  * **Controllers** (separate files per action)
+  * **Observers** (separate files per observer callback)
   * **PHP Code conversions**
     * Class names to backslashed
     * Class declarations to use namespaces
