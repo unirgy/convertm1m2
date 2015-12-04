@@ -1866,7 +1866,6 @@ EOT;
         $contents = preg_replace_callback('#(->setTemplate\([\'"])([A-Za-z0-9_/.]+)([\'"]\))#', function($m) {
             $pattern = "{$this->_env['ext_root_dir']}/app/design/*/*/*/template/{$m[2]}";
             $file = glob($pattern);
-            var_dump($pattern, $file);
             if ($file) {
                 return "{$m[1]}{$this->_env['ext_name']}::{$m[2]}{$m[3]}";
             } else{
