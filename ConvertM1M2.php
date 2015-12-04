@@ -114,6 +114,7 @@ class ConvertM1M2
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
                 'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
+                #'Mage_Adminhtml_Block_Widget_Grid' => 'Magento_Backend_Block_Widget_Grid_Extended',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Messages' => 'Magento_Framework_View_Element_Messages',
                 'Mage_Adminhtml_Block_Report_Filter_Form' => 'Magento_Reports_Block_Adminhtml_Filter_Form',
@@ -1861,6 +1862,18 @@ EOT;
             return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]);
         }, $contents);
 
+        // add template prefix for files existing in module
+        $contents = preg_replace_callback('#(->setTemplate\([\'"])([A-Za-z0-9_/.]+)([\'"]\))#', function($m) {
+            $pattern = "{$this->_env['ext_root_dir']}/app/design/*/*/*/template/{$m[2]}";
+            $file = glob($pattern);
+            var_dump($pattern, $file);
+            if ($file) {
+                return "{$m[1]}{$this->_env['ext_name']}::{$m[2]}{$m[3]}";
+            } else{
+                return $m[0];
+            }
+        }, $contents);
+
         // Add namespace to class declarations
         $classPattern = '#^((final|abstract)\s+)?class \\\\([A-Z][\\\\A-Za-z0-9]+)\\\\([A-Za-z0-9]+)((\s+)(extends|implements)\s|\s*$)?#ms';
         #$contents = preg_replace($classPattern, "namespace \$3;\n\n\$1\$2class \$4\$5", $contents);
@@ -2499,7 +2512,7 @@ EOT;
             ];
             $contents = $this->_convertCodeObjectManagerToDI($contents);
             $contents = $this->_convertNamespaceUse($contents);
-            file_put_contents($fullFilename, $contents);
+            $this->_writeFile($fullFilename, $contents);
         }
         $this->_autoloadMode = 'm1';
         #spl_autoload_register([$this, 'autoloadCallback']);
