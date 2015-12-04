@@ -196,7 +196,7 @@ class ConvertM1M2
                 'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
                 'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
                 'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
-                'Mage::throwException(' => 'throw new Exception(',
+                'Mage::throwException(' => 'throw new \Exception(',
                 ' extends Exception' => ' extends \Exception',
                 '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
                 '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
