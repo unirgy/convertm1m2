@@ -2352,7 +2352,7 @@ EOT;
             $mapByAlias[$alias] = $class;
             array_pop($parts);
             if ('\\' . join('\\', $parts) !== $namespace || $useAs) {
-                $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ";\n";
+                $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ';';
             }
         }
 
