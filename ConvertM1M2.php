@@ -115,6 +115,8 @@ class ConvertM1M2
                 'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 #'Mage_Adminhtml_Block_Widget_Grid' => 'Magento_Backend_Block_Widget_Grid_Extended',
+                'Mage_Adminhtml_Block_Catalog_' => 'Magento_Catalog_Block_Adminhtml_',
+                'Mage_Adminhtml_Block_Customer_' => 'Magento_Customer_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Messages' => 'Magento_Framework_View_Element_Messages',
                 'Mage_Adminhtml_Block_Report_Filter_Form' => 'Magento_Reports_Block_Adminhtml_Filter_Form',
@@ -146,12 +148,14 @@ class ConvertM1M2
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier' => 'Magento_Shipping_Model_Carrier_AbstractCarrierOnline',
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Mode' => 'Magento_Shipping_Model_Config_Source_Online_Mode',
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Requesttype' => 'Magento_Shipping_Model_Config_Source_Online_Requesttype',
+                'Mage_Index_' => 'Magento_Indexer_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
                 'Varien_Object' => 'Magento_Framework_DataObject',
                 'Varien_' => 'Magento_Framework_',
                 '_Model_Mysql4_' => '_Model_ResourceModel_',
                 '_Model_Resource_' => '_Model_ResourceModel_',
+                '_Model_ResourceModel_Abstract' => '_Model_ResourceModel_AbstractResource',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
                 'Zend_Db' => 'Magento_Framework_Db',
@@ -161,11 +165,13 @@ class ConvertM1M2
                 '#_([A-Za-z0-9]+)_(Interface)([^A-Za-z0-9_]|$)#' => '_\1_\1\2\3',
                 '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
                 #'#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
-                '#(Mage_Adminhtml|Magento_Backend)_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
-                '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\2_Adminhtml_Promo_Quote',
-                '#(Mage_Adminhtml|Magento_Backend)_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\2_Adminhtml_Promo_\3',
-                '#Mage_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
-                '#Mage_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
+                '#Magento_Backend_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
+                '#Magento_Backend_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\1_Adminhtml_Promo_Quote',
+                '#Magento_Backend_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\1_Adminhtml_Promo_\2',
+                '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
+                '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
+                '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_Controller_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2\3\4_Abstract\4\5',
+                '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9var]+_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2Controller_\3\4_Abstract\4\5',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -218,6 +224,7 @@ class ConvertM1M2
             ],
             'files_regex' => [
                 '#/Model/(Mysql4|Resource)/#' => '/Model/ResourceModel/',
+                '#/Model/ResourceModel/Abstract#' => '/Model/ResourceModel/AbstractResource',
                 '#/Protected\.php#' => '/ProtectedCode.php',
                 '#/([A-Za-z0-9]+)/(Abstract|New|List)([^A-Za-z0-9/]|$)#' => '/\1/\2\1\3',
                 '#/([A-Za-z0-9]+)/(Interface)([^A-Za-z0-9/]|$)#' => '/\1/\1\2\3',
@@ -1764,8 +1771,6 @@ EOT;
                 if ('php' === $fileExt) {
                     $contents = $this->_readFile($file);
                     $contents = $this->_convertCodeContents($contents);
-                    #$contents = $this->_convertCodeObjectManagerToDI($contents);
-                    #$contents = $this->_convertNamespaceUse($contents);
                     $this->_writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
@@ -1790,8 +1795,6 @@ EOT;
                 $contents = call_user_func($callback, $contents, $params);
             } else {
                 $contents = $this->_convertCodeContents($contents);
-                #$contents = $this->_convertCodeObjectManagerToDI($contents);
-                #$contents = $this->_convertNamespaceUse($contents);
                 $targetFile = preg_replace($fromName, $toName, $targetFile);
             }
             $this->_writeFile($targetFile, $contents);
@@ -2346,7 +2349,10 @@ EOT;
             }
             $mapByClass[$class] = $alias;
             $mapByAlias[$alias] = $class;
-            $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ";\n";
+            array_pop($parts);
+            if ('\\' . join('\\', $parts) !== $namespace || $useAs) {
+                $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ";\n";
+            }
         }
 
         $nl = $this->_currentFile['nl'];
@@ -2375,33 +2381,31 @@ EOT;
 
     protected function _convertController($file, $sourceDir, $targetDir)
     {
-        $targetFile = preg_replace('#Controller\.php$#', '.php', "{$targetDir}/{$file}");
-        $targetFile = preg_replace('#/[^/]+admin/#', '/Adminhtml/', $targetFile);
+        $targetFile = preg_replace(['#Controller\.php$#', '#/[^/]+admin/#'], ['.php', '/Adminhtml/'],
+            "{$targetDir}/{$file}");
 
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
 
-        $fileClass = preg_replace('#Controller$#', '', $fileClass);
-        $fileClass = preg_replace('#[^_]+admin_#', 'Adminhtml_', $fileClass);
+        $fileClass = preg_replace(['#Controller$#', '#[^_]+admin_#'], ['', 'Adminhtml_'], $fileClass);
         $ctrlClass = "{$this->_env['ext_name']}_Controller_{$fileClass}";
 
         $contents = $this->_readFile("{$sourceDir}/{$file}");
-        $contents = str_replace($origClass, $ctrlClass, $contents);
-
 
         if (strpos($file, 'Controller.php') === false) {
+            $contents = str_replace($origClass, $ctrlClass, $contents);
             $contents = $this->_convertCodeContents($contents);
-            #$contents = $this->_convertCodeObjectManagerToDI($contents);
-            #$contents = $this->_convertNamespaceUse($contents);
             $this->_writeFile($targetFile, $contents, false);
             return;
         }
 
+        $targetFile = preg_replace('#([^/]+)\.php$#', '\1/Abstract\1.php', $targetFile);
+        $abstractClass = preg_replace('#([^_]+)$#', '\1_Abstract\1', $ctrlClass);
+
         #$this->log('CONTROLLER: ' . $origClass);
+        $contents = str_replace($origClass, $abstractClass, $contents);
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, 'controller');
-        #$contents = $this->_convertCodeObjectManagerToDI($contents);
-        #$contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -2418,15 +2422,13 @@ EOT;
             $actionClass = "{$ctrlClass}_{$actionName}";
             $methodContents = join($nl, $method['lines']);
             $txt = preg_replace('#(public\s+function\s+)([a-zA-Z0-9_]+)(\()#', '$1execute$3', $methodContents);
-            $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$ctrlClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
+            $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$abstractClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
-            #$classContents = $this->_convertCodeObjectManagerToDI($classContents);
-            #$classContents = $this->_convertNamespaceUse($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
-
+            
             $this->_writeFile($targetActionFile, $classContents, false);
         }
     }
@@ -2460,8 +2462,6 @@ EOT;
         #$this->log('CONTROLLER: ' . $origClass);
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, 'observer');
-        #$contents = $this->_convertCodeObjectManagerToDI($contents);
-        #$contents = $this->_convertNamespaceUse($contents);
 
         $this->_writeFile($targetDir . '/AbstractObserver.php', $contents);
 
@@ -2480,8 +2480,6 @@ EOT;
                 ."\\Magento\\Framework\\Event\\ObserverInterface{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
-            #$classContents = $this->_convertCodeObjectManagerToDI($classContents);
-            #$classContents = $this->_convertNamespaceUse($classContents);
 
             $targetObsFile = "{$targetDir}/{$obsName}.php";
 
