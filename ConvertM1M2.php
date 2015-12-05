@@ -2232,7 +2232,6 @@ EOT;
                 try {
                     $refl = new ReflectionClass($parentClass);
                 } catch (Exception $e) {
-                    debug_print_backtrace();
                     $this->log("[WARN] Reflection Exception: " . $e->getMessage());
                     $refl = false;
                 }
