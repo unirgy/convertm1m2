@@ -1883,7 +1883,8 @@ EOT;
         if (preg_match($classPattern, $contents, $m)) {
             $this->_currentFile['namespace'] = $m[3];
             $this->_currentFile['class'] = $m[3] . '\\' . $m[4];
-            $contents  = str_replace($m[0], "namespace {$m[3]};\n\n{$m[1]}class {$m[4]}{$m[5]}", $contents);
+            $nsCode = "namespace {$m[3]};\n\n{$m[1]}class {$m[4]}" . (!empty($m[5]) ? $m[5] : '');
+            $contents  = str_replace($m[0], $nsCode, $contents);
         }
 
         return $contents;
