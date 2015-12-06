@@ -58,7 +58,11 @@ class ConvertM1M2
 
     protected $_classFileCache = [];
 
-    protected $_aliases = [];
+    protected $_aliases = [
+        'blocks' => [
+            'centinel' => 'Mage_Centinel',
+        ]
+    ];
 
     protected $_layouts = [];
 
