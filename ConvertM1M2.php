@@ -247,10 +247,10 @@ class ConvertM1M2
         if (!is_dir($this->_env['source_dir'])) {
             $this->log('[ERROR] Invalid modules code source directory: ' . $this->_env['source_dir']);
         }
-        if (!is_dir($this->_env['mage1_dir'])) {
+        if (!is_dir($this->_env['mage1_dir']) || !is_dir($this->_env['mage1_dir'] . '/app/code/core' )) {
             $this->log('[ERROR] Invalid Magento 1.x directory: ' . $this->_env['mage1_dir']);
         }
-        if (!is_dir($this->_env['mage2_dir'])) {
+        if (!is_dir($this->_env['mage2_dir']) || !file_exists($this->_env['mage2_dir'] . '/app/bootstrap.php')) {
             $this->log('[ERROR] Invalid Magento 2.x directory: ' . $this->_env['mage2_dir']);
         }
 
