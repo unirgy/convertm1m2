@@ -2536,8 +2536,12 @@ EOT;
 
         $this->log("[INFO] EXTENSION (STAGE 2): {$extName}");
 
-        $extDir = str_replace('_', '/', $extName);
+        $autoloadFile = realpath($this->_env['mage2_dir'] . '/vendor/autoload.php');
+        if (file_exists($autoloadFile)) {
+            include_once($autoloadFile);
+        }
 
+        $extDir = str_replace('_', '/', $extName);
         $files = $this->_findFilesRecursive("{$this->_env['mage2_code_dir']}/{$extDir}");
         foreach ($files as $file) {
             if ('php' !== pathinfo($file, PATHINFO_EXTENSION)) {
