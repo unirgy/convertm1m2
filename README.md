@@ -14,15 +14,17 @@ developers to have more time for tasks that can not be automated, such as:
   
 ## Current status
 
-### Mostly implemented:
+### Implemented:
 
   * **Configurations**
     * ACL keys conversion
   * **Layouts**
     * Menu keys conversion
-  * **Web files** (copying only, no processing)
-  * **Email Templates** (copying only, no processing)
-  * **i18n** (copying only)
+    * Block class names conversion
+    * Template namespaces
+  * **Web files** (copying to correct folder only, no processing)
+  * **Email Templates** (copying to correct folder only, no processing)
+  * **i18n** (copying to correct folder only)
   * **Templates** (with some conversion - see below)
   * **Classes** (with some conversion - see below)
   * **Controllers** (separate files per action)
@@ -34,8 +36,9 @@ developers to have more time for tasks that can not be automated, such as:
     * String translations to use only `__()`
     * Use constructor Dependency Injection
     * `use` classes
+    * Collect correct DI construct arguments from parent classes
 
-### To be implemented:
+### Potentially to be implemented:
 
   * **Migration Setup** (not sure if possible to automate at all)
   * **Advanced PHP code conversion**
@@ -70,7 +73,7 @@ When running from the web, no parameters can be accepted, and the script expects
 
 When running from CLI, the following parameters are accepted (all optional):
 
-`php ConvertM1M2.php s=source m=mage1_folder o=output`
+`php ConvertM1M2.php s=source m=mage1_folder o=output a=stage`
 
 An example of file and folders structure:
 
@@ -102,6 +105,8 @@ An example of file and folders structure:
 ## Steps after automatic conversion
 
   * Run stage 2 to check that classes can be loaded by php without errors
+    * `http://127.0.0.1/convertm1m2/ConvertM1M2.php?a=2` OR
+    * `$ php ConvertM1M2.php a=2`
   * Fix any parent or interface classes as these could have been changed
   * Fix any constructors or other methods arguments as they might have been changed
   * Go over all the output files and try to understand what they mean and how they map to respective functionality in M1 code.
