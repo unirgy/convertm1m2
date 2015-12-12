@@ -106,22 +106,30 @@ class ConvertM1M2
                 'Mage_Core_Helper_Data' => 'Magento_Framework_App_Helper_AbstractHelper',
                 'Mage_Core_Helper_' => 'Magento_Framework_App_Helper_',
                 'Mage_Core_Model_Abstract' => 'Magento_Framework_Model_AbstractModel',
-                'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_Resource_Db_AbstractDb',
+                'Mage_Core_Model_Mysql4_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_AbstractDb',
+                'Mage_Core_Model_Mysql4_Db_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_AbstractDb',
                 'Mage_Core_Model_Mysql4_Collection_Abstract' => 'Magento_Framework_Model_ResourceModel_Db_Collection_AbstractCollection',
-                'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
-                'Mage_Core_Model_Url_Rewrite' => 'Magento_UrlRewrite_Model_UrlRewrite',
-                'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
+                'Mage_Core_Model_Mysql4_Config' => 'Magento_Config_Model_ResourceModel_Config',
+                'Mage_Core_Model_Mysql4_Design' => 'Magento_Theme_Model_ResourceModel_Design',
+                'Mage_Core_Model_Mysql4_Design_Collection' => 'Magento_Theme_Model_ResourceModel_Design_Collection',
+                'Mage_Core_Model_Mysql4_Flag' => 'Magento_Framework_Flag_FlagResource',
+                'Mage_Core_Model_Mysql4_Iterator' => 'Magento_Framework_Model_ResourceModel_Iterator',
+                'Mage_Core_Model_Mysql4_Resource' => 'Magento_Framework_Module_ModuleResource',
+                'Mage_Core_Model_Mysql4_Session' => 'Magento_Framework_Session_SaveHandler_DbTable',
+                'Mage_Core_Model_Mysql4_Translate' => 'Magento_Translation_Model_ResourceModel_Translate',
+                'Mage_Core_Model_Mysql4_Translate_String' => 'Magento_Translation_Model_ResourceModel_StringUtils',
+                'Mage_Core_Model_Mysql4_Url_Rewrite_Collection' => 'Magento_UrlRewrite_Model_ResourceModel_UrlRewriteCollection',
                 'Mage_Core_Model_Mysql4_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
+                'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Translate_String' => 'Magento_Translation_Model_StringUtils',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
                 'Mage_Core_Controller_Front_Action' => 'Magento_Framework_App_Action_Action',
                 'Mage_Core_' => 'Magento_Framework_',
                 'Mage_Adminhtml_Controller_Action' => 'Magento_Backend_App_Action',
                 #'Mage_Adminhtml_Block_Widget_Grid' => 'Magento_Backend_Block_Widget_Grid_Extended',
-                'Mage_Adminhtml_Block_Catalog_' => 'Magento_Catalog_Block_Adminhtml_',
-                'Mage_Adminhtml_Block_Customer_' => 'Magento_Customer_Block_Adminhtml_',
-                'Mage_Adminhtml_Block_Sales_' => 'Magento_Sales_Block_Adminhtml_',
                 'Mage_Adminhtml_Block_Messages' => 'Magento_Framework_View_Element_Messages',
                 'Mage_Adminhtml_Block_Report_Filter_Form' => 'Magento_Reports_Block_Adminhtml_Filter_Form',
                 'Mage_Adminhtml_Block_System_Config_Form_Field_Array_Abstract' => 'Magento_Config_Block_System_Config_Form_Field_FieldArray_AbstractFieldArray',
@@ -145,13 +153,12 @@ class ConvertM1M2
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_Rule_Model_Rule' => 'Magento_Rule_Model_AbstractModel',
                 'Mage_Usa_Block_Adminhtml_Dhl_' => 'Magento_Dhl_Block_Adminhtml_',
-                'Mage_Usa_Model_Shipping_Carrier_Dhl_Abstract' => 'Magento_Dhl_Model_AbstractDhl',
                 'Mage_Usa_Model_Shipping_Carrier_Dhl_International_' => 'Magento_Dhl_Model_',
                 'Mage_Usa_Model_Shipping_Carrier_Dhl_International' => 'Magento_Dhl_Model_Carrier',
-                'Mage_Usa_Model_Simplexml_Element' => 'Magento_Shipping_Model_Simplexml_Element',
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier' => 'Magento_Shipping_Model_Carrier_AbstractCarrierOnline',
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Mode' => 'Magento_Shipping_Model_Config_Source_Online_Mode',
                 'Mage_Usa_Model_Shipping_Carrier_AbstractCarrier_Source_Requesttype' => 'Magento_Shipping_Model_Config_Source_Online_Requesttype',
+                'Mage_Usa_Model_Simplexml_Element' => 'Magento_Shipping_Model_Simplexml_Element',
                 'Mage_Index_' => 'Magento_Indexer_',
                 'Mage_' => 'Magento_',
                 'Varien_Io_' => 'Magento_Framework_Filesystem_Io_',
@@ -168,14 +175,17 @@ class ConvertM1M2
                 '#_([A-Za-z0-9]+)_(Abstract|New|List)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
                 '#_([A-Za-z0-9]+)_(Interface)([^A-Za-z0-9_]|$)#' => '_\1_\1\2\3',
                 '#_Protected(?![A-Za-z0-9_])#' => '_ProtectedCode',
-                #'#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
-                '#Magento_Backend_Block_(Catalog)_#' => 'Magento_\2_Block_Adminhtml_',
+                '#(Mage_[A-Za-z0-9_]+)_Grid([^A_Za-z0-9_])#' => '\1\2',
+                '#Magento_Backend_Block_(Catalog|Customer|Sales)_#' => 'Magento_\1_Block_Adminhtml_',
                 '#Magento_Backend_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\1_Adminhtml_Promo_Quote',
                 '#Magento_Backend_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\1_Adminhtml_Promo_\2',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
                 '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_Controller_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2\3\4_Abstract\4\5',
-                '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9var]+_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2Controller_\3\4_Abstract\4\5',
+                '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2Controller_\3\4_Abstract\4\5',
+                '#Magento_Framework(_Model(_ResourceModel)?_(Store|Website))#' => 'Magento_Store\1',
+                '#Magento_Framework(_Model(_ResourceModel)?)_(Email|Variable)#' => 'Magento_\3\1',
+                '#Magento_Framework(_Model(_ResourceModel)?)_Url_Rewrite#' => 'Magento_UrlRewrite\1_UrlRewrite',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -212,9 +222,13 @@ class ConvertM1M2
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
                 '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
-                '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
-                '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
+                '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
+                '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
                 '#Zend_Validate::is\(([^,]+),\s*[\'"]([A-Za-z0-9]+)[\'"]\)#' => '(new \Zend\Validator\\\\\2())->isValid(\1)',
+                '#Mage::app\(\)->getConfig\(\)->getNode\(\'modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version\'\)#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Module\ModuleListInterface\')->getOne(\'\1\')["setup_version"]',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -228,11 +242,11 @@ class ConvertM1M2
                 'report' => 'Magento_Reports:report',
             ],
             'files_regex' => [
-                '#/Model/(Mysql4|Resource)/#' => '/Model/ResourceModel/',
-                '#/Model/ResourceModel/Abstract#' => '/Model/ResourceModel/AbstractResource',
-                '#/Protected\.php#' => '/ProtectedCode.php',
-                '#/([A-Za-z0-9]+)/(Abstract|New|List)([^A-Za-z0-9/]|$)#' => '/\1/\2\1\3',
-                '#/([A-Za-z0-9]+)/(Interface)([^A-Za-z0-9/]|$)#' => '/\1/\1\2\3',
+                '#(/Model/)(Mysql4|Resource)/#' => '\1ResourceModel/',
+                '#(/Model/ResourceModel/Abstract)(\.php)#' => '\1Resource\2',
+                '#(/Protected)(\.php)#' => '\1Code\2',
+                '#/([A-Za-z0-9]+)/(Abstract|New|List)(\.php)#' => '/\1/\2\1\3',
+                '#/([A-Za-z0-9]+)/(Interface)(\.php)#' => '/\1/\1\2\3',
             ],
         ];
     }
@@ -2066,6 +2080,7 @@ EOT;
         }
         $propertyLines = [];
         $constructLines = [];
+        $classVars = [];
         $declared = [];
         $pad = '    ';
 
@@ -2085,7 +2100,12 @@ EOT;
             }
             $declared[$class] = 1;
             $cArr = array_reverse(explode('\\', $class));
-            $var = (!empty($cArr[2]) ? $cArr[2] : '') . $cArr[1] . $cArr[0];
+
+            $var = $cArr[1] . $cArr[0];
+            for ($i = 2; $i <= 5 && !empty($classVars[$var]) && !empty($cArr[$i]); $i++) {
+                $var = $cArr[$i] . $var;
+            }
+            $classVars[$var] = 1;
             $var[0] = strtolower($var[0]);
 
             if (empty($parentClasses[$class])) {
