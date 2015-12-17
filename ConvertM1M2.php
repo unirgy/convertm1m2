@@ -227,7 +227,7 @@ class ConvertM1M2
                 '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
                 '#Zend_Validate::is\(([^,]+),\s*[\'"]([A-Za-z0-9]+)[\'"]\)#' => '(new \Zend\Validator\\\\\2())->isValid(\1)',
-                '#Mage::app\(\)->getConfig\(\)->getNode\(\'modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version\'\)#' =>
+                '#Mage::app\(\)->getConfig\(\)->getNode\([\'"]modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version[\'"]\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Module\ModuleListInterface\')->getOne(\'\1\')["setup_version"]',
             ],
             'acl_keys' => [
@@ -2432,6 +2432,7 @@ EOT;
         $contents = str_replace($origClass, $abstractClass, $contents);
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, 'controller');
+        $contents = $this->_convertControllerContext($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -2451,12 +2452,26 @@ EOT;
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$abstractClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
+            $classContents = $this->_convertControllerContext($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
 
             $this->_writeFile($targetActionFile, $classContents, false);
         }
+    }
+
+    protected function _convertControllerContext($contents)
+    {
+        $map = [
+            self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')' => '$this->messageManager',
+            self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')' => '$this->_eventManager',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(' => '$this->_authorization->isAllowed(',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\')' => '$this->_auth',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Session\')' => '$this->_session',
+        ];
+        $contents = str_replace(array_keys($map), array_values($map), $contents);
+        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
