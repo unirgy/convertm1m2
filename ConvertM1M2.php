@@ -120,6 +120,7 @@ class ConvertM1M2
                 'Mage_Core_Model_Mysql4_Translate_String' => 'Magento_Translation_Model_ResourceModel_StringUtils',
                 'Mage_Core_Model_Mysql4_Url_Rewrite_Collection' => 'Magento_UrlRewrite_Model_ResourceModel_UrlRewriteCollection',
                 'Mage_Core_Model_Mysql4_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
                 'Mage_Core_Model_Config_' => 'Magento_Framework_App_Config_',
                 'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
@@ -218,13 +219,12 @@ class ConvertM1M2
                 'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
                 'Mage::throwException(' => 'throw new \Exception(',
                 'Mage::getVersion()' => self::OBJ_MGR . '(\'Magento\Framework\App\ProductMetadataInterface\')->getVersion()',
+                'throw new Exception' => 'throw new \Exception',
                 ' extends Exception' => ' extends \Exception',
                 '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
                 '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
                 '$this->_redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
                 '$this->_forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
-                //TODO: Need help with:
-                #'Mage::app()->getConfig()->getNode(' => '',
             ],
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
