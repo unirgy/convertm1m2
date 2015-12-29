@@ -167,6 +167,7 @@ class ConvertM1M2
                 '_Model_Mysql4_' => '_Model_ResourceModel_',
                 '_Model_Resource_' => '_Model_ResourceModel_',
                 '_Model_ResourceModel_Abstract' => '_Model_ResourceModel_AbstractResource',
+                '_Model_ResourceModel_Eav_Mysql4_' => '_Model_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
                 'Zend_Db_Adapter_Abstract' => 'Magento_Framework_DB_Adapter_AdapterInterface',
