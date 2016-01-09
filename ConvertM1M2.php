@@ -76,7 +76,7 @@ class ConvertM1M2
     // Sources: http://mage2.ru, https://wiki.magento.com/display/MAGE2DOC/Class+Mage
     protected $_replace;
 
-    protected $_reservedWordsRe = '#^(
+    protected $_reservedWordsRe = '
 (a(bstract|nd|rray|s))|
 (c(a(llable|se|tch)|l(ass|one)|on(st|tinue)))|
 (d(e(clare|fault)|ie|o))|
@@ -91,8 +91,7 @@ class ConvertM1M2
 (t(hrow|r(ait|y)))|
 (u(nset|se))|
 (__halt_compiler|break|list|(x)?or|var|while)
-|map|data
-)$#ix';
+'; // Example of use: #^( ... )$#ix
 
     protected function _getReplaceMaps()
     {
@@ -190,6 +189,7 @@ class ConvertM1M2
                 '#Magento_Framework(_Model(_ResourceModel)?_(Store|Website))#' => 'Magento_Store\1',
                 '#Magento_Framework(_Model(_ResourceModel)?)_(Email|Variable)#' => 'Magento_\3\1',
                 '#Magento_Framework(_Model(_ResourceModel)?)_Url_Rewrite#' => 'Magento_UrlRewrite\1_UrlRewrite',
+                "#([A-Za-z0-9]+_[A-Za-z0-9]+_)([A-Za-z0-9]+)_({$this->_reservedWordsRe})(?![A-Za-z0-9])#ix" => '\1\2_\3\2',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -271,6 +271,7 @@ class ConvertM1M2
                 '#(/Protected)(\.php)#' => '\1Code\2',
                 '#/([A-Za-z0-9]+)/(Abstract|New|List)(\.php)#' => '/\1/\2\1\3',
                 '#/([A-Za-z0-9]+)/(Interface)(\.php)#' => '/\1/\1\2\3',
+                "#/([A-Za-z0-9]+)/({$this->_reservedWordsRe})(?![A-Za-z0-9])#ix" => '/\1/\2\1',
             ],
         ];
     }
@@ -2403,7 +2404,7 @@ EOT;
             }
             $alias = $parts[$i];
             $useAs = false;
-            while ($i > 0 && !empty($mapByAlias[$alias]) || preg_match($this->_reservedWordsRe, $alias)) {
+            while ($i > 0 && !empty($mapByAlias[$alias]) || preg_match("#^({$this->_reservedWordsRe}|map|data)$#ix", $alias)) {
                 $i--;
                 $alias = $parts[$i] . $alias;
                 $useAs = true;
