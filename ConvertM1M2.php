@@ -1203,7 +1203,7 @@ EOT;
         foreach ($attr as $k => $v) {
             $targetNode->addAttribute($k, $v);
         }
-        $children = ['class', 'label', 'tab'];
+        $children = $type === 'tab' ? ['label'] : ['class', 'label', 'tab'];
         if ('field' === $type) {
             $children = array_merge($children, ['source_model', 'backend_model', 'upload_dir', 'base_url', 'comment']);
         }
