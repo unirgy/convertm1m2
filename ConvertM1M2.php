@@ -2301,6 +2301,9 @@ EOT;
         }
         if (!$parentPath || !file_exists($parentPath)) {
             $this->log("[WARN] Could not find a parent class file: {$parentPath} ({$parentClass} <- {$this->_currentFile['class']})");
+            if (strpos($parentClass, '\\Controller\\') !== false) {
+                $this->log("[INFO] Magento 2 controllers are separated into different classes for each action.");
+            }
             return false;
         }
         $parentContents = file_get_contents($parentPath);
