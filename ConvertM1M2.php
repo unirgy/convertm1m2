@@ -137,6 +137,7 @@ class ConvertM1M2
                 'Mage_Adminhtml_Block_System_Config_' => 'Magento_Config_Block_System_Config_',
                 'Mage_Adminhtml_Block_System_Variable' => 'Magento_Variable_Block_System_Variable',
                 'Mage_Adminhtml_Block_Checkout_Agreement_' => 'Magento_CheckoutAgreements_Block_Adminhtml_Agreement_',
+                'Mage_Adminhtml_Model_System_Config_Backend_' => 'Magento_Config_Model_Config_Backend_',
                 'Mage_Adminhtml_Model_System_Config_Source_Country' => 'Magento_Directory_Model_Config_Source_Country',
                 'Mage_Adminhtml_Model_System_Config_Source_Allregion' => 'Magento_Directory_Model_Config_Source_Allregion',
                 'Mage_Adminhtml_Model_System_Config_Source_' => 'Magento_Config_Model_Config_Source_',
