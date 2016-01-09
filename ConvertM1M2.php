@@ -120,6 +120,7 @@ class ConvertM1M2
                 'Mage_Core_Model_Mysql4_Url_Rewrite_Collection' => 'Magento_UrlRewrite_Model_ResourceModel_UrlRewriteCollection',
                 'Mage_Core_Model_Mysql4_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
                 'Mage_Core_Model_Config_Data' => 'Magento_Framework_App_Config_Value',
+                'Mage_Core_Model_Config_' => 'Magento_Framework_App_Config_',
                 'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
                 'Mage_Core_Model_Translate_String' => 'Magento_Translation_Model_StringUtils',
@@ -166,9 +167,11 @@ class ConvertM1M2
                 '_Model_Mysql4_' => '_Model_ResourceModel_',
                 '_Model_Resource_' => '_Model_ResourceModel_',
                 '_Model_ResourceModel_Abstract' => '_Model_ResourceModel_AbstractResource',
+                '_Model_ResourceModel_Eav_Mysql4_' => '_Model_ResourceModel_',
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
-                'Zend_Db' => 'Magento_Framework_Db',
+                'Zend_Db_Adapter_Abstract' => 'Magento_Framework_DB_Adapter_AdapterInterface',
+                'Zend_Db' => 'Magento_Framework_DB',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_(Abstract|New|List)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
@@ -178,6 +181,7 @@ class ConvertM1M2
                 '#Magento_Backend_Block_(Catalog|Customer|Sales)_#' => 'Magento_\1_Block_Adminhtml_',
                 '#Magento_Backend_(Block|Controller)_Promo_Quote#' => 'Magento_SalesRule_\1_Adminhtml_Promo_Quote',
                 '#Magento_Backend_(Block|Controller)_Promo_(Catalog|Widget)#' => 'Magento_CatalogRule_\1_Adminhtml_Promo_\2',
+                '#Magento_Backend_Block_Widget_Form([^A-Za-z0-9_]|$)#' => 'Magento_Backend_Block_Widget_Form_Generic\1',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
                 '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_Controller_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2\3\4_Abstract\4\5',
@@ -188,14 +192,18 @@ class ConvertM1M2
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
+                'Mage_Core_Model_Locale::FORMAT_TYPE_' => '\IntlDateFormatter::',
                 'Mage_Core_Model_Translate::CACHE_TAG' => '\Magento\Framework\App\Cache\Type::CACHE_TAG',
 
-                'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->log(',
+                'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->debug(',
                 'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
                 'Mage::dispatchEvent(' => self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
                 'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
-                'Mage::app()->getLocale()->getLocaleCode()' => self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->getLocale()',
                 'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
+                'Mage::app()->getCache()' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\Proxy\')',
+                'Mage::app()->loadCache(' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')->load(',
+                'Mage::app()->saveCache(' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')->save(',
+                'Mage::app()->useCache(' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\StateInterface\')->isEnabled(',
                 'Mage::app()->getCacheInstance()->canUse(' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\StateInterface\')->isEnabled(',
                 'Mage::app()->getCacheInstance()' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')',
                 'Mage::getConfig()->getModuleDir(' => self::OBJ_MGR . '(\'Magento\Framework\Module\Dir\Reader\')->getModuleDir(',
@@ -206,17 +214,16 @@ class ConvertM1M2
                 'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
                 'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
                 'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
-                'Mage::getBaseDir(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirPath(',
                 'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
                 'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
                 'Mage::throwException(' => 'throw new \Exception(',
+                'Mage::getVersion()' => self::OBJ_MGR . '(\'Magento\Framework\App\ProductMetadataInterface\')->getVersion()',
+                'throw new Exception' => 'throw new \Exception',
                 ' extends Exception' => ' extends \Exception',
                 '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
                 '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
                 '$this->_redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
                 '$this->_forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
-                //TODO: Need help with:
-                #'Mage::app()->getConfig()->getNode(' => '',
             ],
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
@@ -230,8 +237,21 @@ class ConvertM1M2
                 '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
                 '#Zend_Validate::is\(([^,]+),\s*[\'"]([A-Za-z0-9]+)[\'"]\)#' => '(new \Zend\Validator\\\\\2())->isValid(\1)',
-                '#Mage::app\(\)->getConfig\(\)->getNode\(\'modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version\'\)#' =>
+                '#Mage::app\(\)->getConfig\(\)->getNode\([\'"]modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version[\'"]\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Module\ModuleListInterface\')->getOne(\'\1\')["setup_version"]',
+                '#Mage::app\(\)->getConfig\(\)->createDirIfNotExists\(([^)]+)\);#' =>
+                    'if (' . self::OBJ_MGR . '(\'Magento\Framework\Filesystem\DriverInterface\')->isExists(\1)) {' . "\n"
+                    . self::OBJ_MGR . '(\'Magento\Framework\Filesystem\DriverInterface\')->createDirectory(\1, 0775);'
+                    . "\n}",
+                '#(}\s*catch\s*\()(Exception\s+)#' => '\1\\\\\2',
+                '#Mage::app\(\)\s*->getLocale\(\)\s*->(getLocale|emulate|revert)(Code)?\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->\1(',
+                '#Mage::app\(\)\s*->getLocale\(\)\s*->getDateTimeFormat\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Stdlib\DateTime\TimezoneInterface\')->getDateTimeFormat(',
+                '#Mage::getBaseDir\(([\'"][a-z]+[\'"])\)#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirectoryWrite(\1)->getAbsolutePath()',
+                '#Mage::app\(\)->(isSingleStoreMode|getDefaultStoreView)\(\)#' =>
+                    self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1()',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -1850,20 +1870,24 @@ EOT;
             $contents = str_replace(self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
                 '$block->getLayout()', $contents);
         }
+        $contents = $this->_convertShortArraySyntax($contents);
 
         // convert block name to block class
         $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
             return $m[1] . $this->_getClassName('blocks', $m[2]) . $m[3];
         }, $contents);
+        $contents = preg_replace_callback('#Mage::getBlockSingleton\(([\'"])([A-Za-z_/]+)([\'"])\)#', function($m) {
+            return static::OBJ_MGR . "({$m[1]}" . $this->_getClassName('blocks', $m[2]) . "{$m[3]})";
+        }, $contents);
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
-        $re = '#(Mage::getModel|Mage::getResourceModel|Mage::getSingleton|Mage::helper|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
+        $re = '#(Mage::(getModel|getResourceModel|getSingleton|helper)|\$this->helper)\([\'"]([a-zA-Z0-9/_]+)[\'"]\)#';
         $contents = preg_replace_callback($re, function($m) {
-            $classKey = $m[2];
-            if (strpos($m[1], 'helper') !== false) {
+            $classKey = $m[3];
+            if ($m[2] === 'helper' || $m[1] === '$this->helper') {
                 $class = $this->_getClassName('helpers', $classKey, false);
             } else {
-                if (strpos($m[1], 'getResourceModel') !== false) {
+                if ($m[2] === 'getResourceModel') {
                     list($modKey, $clsKey) = explode('/', $classKey);
                     if (!empty($this->_aliases['models']["{$modKey}_resource"])) {
                         $classKey = "{$modKey}_resource/{$clsKey}";
@@ -1874,6 +1898,16 @@ EOT;
                 $class = $this->_getClassName('models', $classKey, false);
             }
             $result = self::OBJ_MGR . "('{$class}')";
+            if ($m[2] === 'getModel') {
+                $result = str_replace('->get(', '->create(', $result);
+            }
+            return $result;
+        }, $contents);
+        $contents = preg_replace_callback('#Mage::get(Model|Singleton)\(#', function($m) {
+            $result = self::OBJ_MGR . '(';
+            if ($m[1] === 'Model') {
+                $result = str_replace('->get(', '->create(', $result);
+            }
             return $result;
         }, $contents);
 
@@ -1884,7 +1918,7 @@ EOT;
         $contents = preg_replace(array_keys($classRegexTr), array_values($classRegexTr), $contents);
 
         // Convert any left underscored class names to backslashed. If class name is in string value, don't prefix
-        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9][a-z0-9]+_[A-Za-z0-9_]+)#', function($m) {
+        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9][a-z0-9]+_[A-Za-z0-9_]+_[A-Za-z0-9_])#', function($m) {
             return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]);
         }, $contents);
 
@@ -2094,9 +2128,6 @@ EOT;
         $optionalArgs = $parentArgs['optional'];
         $hasParent = $parentArgs['has_parent'];
         $parentClasses = $parentArgs['classes'];
-        //*/
-        //var_dump($constructArgs, $constructParentArgs);
-#echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($declared);
         foreach ($matches as $m) {
             $class = '\\' . ltrim($m[1], '\\');
             if (!empty($declared[$class])) {
@@ -2128,7 +2159,6 @@ EOT;
 
             $contents = str_replace($m[0], "\$this->_{$var}", $contents);
         }
-//echo '<hr>' . $this->_currentFile['class'].'<br>'; var_dump($constructArgs, $constructParentArgs);
 
         $nl = $this->_currentFile['nl'];
         $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+\s+[^{]*\{#m';
@@ -2139,8 +2169,8 @@ EOT;
         if (preg_match('#^(\s*public\s+function\s+__construct\()(.*?)(\)\s+\{)#ms', $contents, $m)) {
             $comma = !empty($m[2]) ? ', ' : '';
             $contents = str_replace($m[0], "{$m[1]}{$m[2]}{$comma}{$argsStr}{$m[3]}{$nl}{$assignStr}{$nl}", $contents);
-            $contents = preg_replace_callback('#(parent::__construct\()\s*(.)#', function($m) use ($constructParentArgsStr) {
-                return $m[1] . $constructParentArgsStr . ($m[2] !== ')' ? ', ' : '') . $m[2];
+            $contents = preg_replace_callback('#(parent::__construct\s*\()\s*(.)#', function($m) use ($constructParentArgsStr) {
+                return $m[1] . $constructParentArgsStr . ($constructParentArgsStr && $m[2] !== ')' ? ', ' : '') . $m[2];
             }, $contents);
         } else {
             $classStartWith .= "{$nl}{$pad}public function __construct({$argsStr}){$nl}{$pad}{{$nl}{$assignStr}{$nl}";
@@ -2334,7 +2364,7 @@ EOT;
 
     protected function _convertNamespaceUse($contents)
     {
-        #return $contents;
+        #return $contents;#
 
         if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
             return $contents;
@@ -2381,7 +2411,7 @@ EOT;
             $mapByAlias[$alias] = $class;
             array_pop($parts);
             if ('\\' . join('\\', $parts) !== $namespace || $useAs) {
-                $useLines[] = 'use ' . $class . ($useAs ? ' as ' . $alias : '') . ';';
+                $useLines[] = 'use ' . trim($class, '\\') . ($useAs ? ' as ' . $alias : '') . ';';
             }
         }
 
@@ -2395,6 +2425,54 @@ EOT;
         $contents = str_replace(array_keys($mapByClass), array_values($mapByClass), $contents);
         $contents = str_replace($namespaceLine, $namespaceLine . $nl . $nl . join($nl, $useLines), $contents);
         return $contents;
+    }
+
+    protected function _convertShortArraySyntax($contents)
+    {
+        $tokens = token_get_all($contents);
+        for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
+            if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
+                $this->_convertShortArraySyntaxRecursive($tokens, $i, $size);
+            }
+        }
+        $result = [];
+        for ($i = 0; $i < $size; $i++) {
+            if (isset($tokens[$i])) {
+                $result[] = is_array($tokens[$i]) ? $tokens[$i][1] : $tokens[$i];
+            }
+        }
+        return join('', $result);
+    }
+
+    protected function _convertShortArraySyntaxRecursive(&$tokens, &$start, $size)
+    {
+        for ($i = $start + 1; $i < $size; $i++) {
+            if ($tokens[$i] === '(') {
+                break;
+            } elseif (!is_array($tokens[$i]) && $tokens[$i][0] !== T_WHITESPACE) {
+                return;
+            }
+        }
+        $tokens[$start] = '[';
+        for ($j = $start + 1; $j <= $i; $j++) {
+            unset($tokens[$j]);
+        }
+        $bracketLevel = 0;
+        for ($i = $i + 1; $i < $size; $i++) {
+            if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
+                $this->_convertShortArraySyntaxRecursive($tokens, $i, $size);
+            } elseif ($tokens[$i] === '(') {
+                $bracketLevel++;
+            } elseif ($tokens[$i] === ')') {
+                if ($bracketLevel) {
+                    $bracketLevel--;
+                } else {
+                    $tokens[$i] = ']';
+                    break;
+                }
+            }
+        }
+        $start = $i + 1;
     }
 
     ///////////////////////////////////////////////////////////
@@ -2436,6 +2514,7 @@ EOT;
         $contents = str_replace($origClass, $abstractClass, $contents);
         $contents = $this->_convertCodeContents($contents);
         $contents = $this->_convertCodeParseMethods($contents, 'controller');
+        $contents = $this->_convertControllerContext($contents);
 
         $this->_writeFile($targetFile, $contents);
 
@@ -2455,12 +2534,26 @@ EOT;
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$abstractClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
             $classContents = $this->_convertCodeContents($classContents);
+            $classContents = $this->_convertControllerContext($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
 
             $this->_writeFile($targetActionFile, $classContents, false);
         }
+    }
+
+    protected function _convertControllerContext($contents)
+    {
+        $map = [
+            self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')' => '$this->messageManager',
+            self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')' => '$this->_eventManager',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(' => '$this->_authorization->isAllowed(',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\')' => '$this->_auth',
+            self::OBJ_MGR . '(\'Magento\Backend\Model\Session\')' => '$this->_session',
+        ];
+        $contents = str_replace(array_keys($map), array_values($map), $contents);
+        return $contents;
     }
 
     ///////////////////////////////////////////////////////////
