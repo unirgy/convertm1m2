@@ -1,28 +1,27 @@
 <?php
 /**
-
-Copyright (c) 2015 Boris Gurvich
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2015 Boris Gurvich
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
-
 
 if (PHP_SAPI === 'cli') {
     $cwd = getcwd();
@@ -222,8 +221,12 @@ class ConvertM1M2
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
                 '#Mage::(registry|register|unregister)\(#' => self::OBJ_MGR . '(\'Magento\Framework\Registry\')->\1(',
-                '#Mage::helper\(\'core\'\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' =>
+                '#Mage::helper\([\'"]core[\'"]\)->(encrypt|decrypt|getHash|hash|validateHash)\(#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Encryption\Encryptor\')->\1(',
+                '#Mage::helper\([\'"]core[\'"]\)->(jsonEncode)\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Json\EncoderInterface\')->\1(',
+                '#Mage::helper\([\'"]core[\'"]\)->(decorateArray)\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Stdlib\ArrayUtils\')->\1(',
                 '#Mage::getConfig\(\)->getNode\(([\'"][^)]+[\'"])\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1\2\3, \'default\')',
                 '#Zend_Validate::is\(([^,]+),\s*[\'"]([A-Za-z0-9]+)[\'"]\)#' => '(new \Zend\Validator\\\\\2())->isValid(\1)',
@@ -971,6 +974,7 @@ EOT;
                         $targetObsNode->addAttribute('name', $obsName);
                         $instance = $this->_getClassName('models', (string)$obsNode->class) . '\\'
                             . str_replace(' ', '', ucwords(str_replace('_', ' ', (string)$obsNode->method)));
+                        $instance = str_replace('\\Model\\Observer\\', '\\Observer\\', $instance);
                         $targetObsNode->addAttribute('instance', $instance);
                         #$targetObsNode->addAttribute('method', (string)$obsNode->method);
                         if ($obsNode->type == 'model') {
