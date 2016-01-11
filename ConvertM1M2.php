@@ -2127,7 +2127,7 @@ EOT;
         $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
         $constructArgs = $parentArgs['args'];
         $constructParentArgs = $parentArgs['parent_args'];
-        $optionalArgs = $parentArgs['optional'];
+        $optionalArgsStart = $parentArgs['optional'];
         $hasParent = $parentArgs['has_parent'];
         $parentClasses = $parentArgs['classes'];
         foreach ($matches as $m) {
@@ -2152,7 +2152,11 @@ EOT;
                 $propertyLines[] = "{$pad}protected \$_{$var};";
                 $propertyLines[] = "";
 
-                $constructArgs[] = "{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
+                if (empty($optionalArgsStart)) {
+                    $constructArgs[] = "{$class} \${$var}";
+                } else {
+                    array_splice($constructArgs, $optionalArgsStart++, 0, ["{$class} \${$var}"]);
+                }
 
                 $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
             }
@@ -2240,13 +2244,15 @@ EOT;
         if (!preg_match_all('#([\\\\A-Za-z0-9]+)\s+(\$[A-Za-z0-9_]+)([^,]*)#m', $argsStr, $matches, PREG_SET_ORDER)) {
             return $result;
         }
-        foreach ($matches as $m) {
+        foreach ($matches as $i => $m) {
             $argClass = $this->_convertGetFullClassName($parentContents, $parentConstructClass, $m[1]);
             $result['classes'][$argClass] = 1;
             $result['args'][] = rtrim($argClass . ' ' . $m[2] . $m[3]);
             $result['parent_args'][] = $m[2];
+            if (empty($result['optional']) && strpos($m[3], '=') !== false) {
+                $result['optional'] = $i;
+            }
         }
-        $result['optional'] = strpos($argsStr, '=') !== false;
         $cache[$parentClass] = $cache[$parentConstructClass] = $result;
         return $result;
     }
