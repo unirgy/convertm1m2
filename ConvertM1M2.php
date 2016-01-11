@@ -199,6 +199,7 @@ class ConvertM1M2
                 'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->debug(',
                 'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
                 'Mage::dispatchEvent(' => self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
+                'Mage::app()->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\Layout\')',
                 'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
                 'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
                 'Mage::app()->getCache()' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\Proxy\')',
