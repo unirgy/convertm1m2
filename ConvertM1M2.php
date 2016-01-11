@@ -1913,6 +1913,16 @@ EOT;
             }
             return $result;
         }, $contents);
+        $contents = preg_replace_callback('#__\(([\"\'])((\\\\\1|.)+)\1\s*,#', function($m) {
+            $i = 1;
+            $result = $m[2];
+            do {
+                $prevResult = $result;
+                $result = preg_replace("#%s#", "%{$i}", $result, 1);
+                $i++;
+            } while ($result !== $prevResult);
+            return "__({$m[1]}{$result}{$m[1]},";
+        }, $contents);
 
         // Replace M1 classes with M2 classes
         $classTr = $this->_replace['classes'];
