@@ -200,6 +200,7 @@ class ConvertM1M2
                 'Mage::log(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->debug(',
                 'Mage::logException(' => self::OBJ_MGR . '(\'Psr\Log\LoggerInterface\')->error(',
                 'Mage::dispatchEvent(' => self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
+                'Mage::app()->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\Layout\')',
                 'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
                 'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
                 'Mage::app()->getCache()' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\Proxy\')',
@@ -1913,6 +1914,16 @@ EOT;
             }
             return $result;
         }, $contents);
+        $contents = preg_replace_callback('#__\(([\"\'])((\\\\\1|.)+)\1\s*,#', function($m) {
+            $i = 1;
+            $result = $m[2];
+            do {
+                $prevResult = $result;
+                $result = preg_replace("#%s#", "%{$i}", $result, 1);
+                $i++;
+            } while ($result !== $prevResult);
+            return "__({$m[1]}{$result}{$m[1]},";
+        }, $contents);
 
         // Replace M1 classes with M2 classes
         $classTr = $this->_replace['classes'];
@@ -2128,7 +2139,7 @@ EOT;
         $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
         $constructArgs = $parentArgs['args'];
         $constructParentArgs = $parentArgs['parent_args'];
-        $optionalArgs = $parentArgs['optional'];
+        $optionalArgsStart = $parentArgs['optional'];
         $hasParent = $parentArgs['has_parent'];
         $parentClasses = $parentArgs['classes'];
         foreach ($matches as $m) {
@@ -2153,7 +2164,11 @@ EOT;
                 $propertyLines[] = "{$pad}protected \$_{$var};";
                 $propertyLines[] = "";
 
-                $constructArgs[] = "{$class} \${$var}" . ($optionalArgs ? ' = null' : '');
+                if (empty($optionalArgsStart)) {
+                    $constructArgs[] = "{$class} \${$var}";
+                } else {
+                    array_splice($constructArgs, $optionalArgsStart++, 0, ["{$class} \${$var}"]);
+                }
 
                 $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
             }
@@ -2241,13 +2256,15 @@ EOT;
         if (!preg_match_all('#([\\\\A-Za-z0-9]+)\s+(\$[A-Za-z0-9_]+)([^,]*)#m', $argsStr, $matches, PREG_SET_ORDER)) {
             return $result;
         }
-        foreach ($matches as $m) {
+        foreach ($matches as $i => $m) {
             $argClass = $this->_convertGetFullClassName($parentContents, $parentConstructClass, $m[1]);
             $result['classes'][$argClass] = 1;
             $result['args'][] = rtrim($argClass . ' ' . $m[2] . $m[3]);
             $result['parent_args'][] = $m[2];
+            if (empty($result['optional']) && strpos($m[3], '=') !== false) {
+                $result['optional'] = $i;
+            }
         }
-        $result['optional'] = strpos($argsStr, '=') !== false;
         $cache[$parentClass] = $cache[$parentConstructClass] = $result;
         return $result;
     }
