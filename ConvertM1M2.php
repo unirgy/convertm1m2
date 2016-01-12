@@ -397,7 +397,6 @@ class ConvertM1M2
         $this->_convertAllConfigs();
         $this->_convertAllControllers();
         $this->_convertAllObservers();
-        $this->_convertAllMigrations();
         $this->_convertAllLayouts();
         $this->_convertAllTemplates();
         $this->_convertAllWebAssets();
@@ -2659,13 +2658,6 @@ EOT;
         }
         $this->_autoloadMode = 'm1';
         #spl_autoload_register([$this, 'autoloadCallback']);
-    }
-
-    ///////////////////////////////////////////////////////////
-
-    protected function _convertAllMigrations()
-    {
-
     }
 
     ///////////////////////////////////////////////////////////
