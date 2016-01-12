@@ -202,7 +202,6 @@ class ConvertM1M2
                 'Mage::dispatchEvent(' => self::OBJ_MGR . '(\'Magento\Framework\Event\ManagerInterface\')->dispatch(',
                 'Mage::app()->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\Layout\')',
                 'Mage::app()->getRequest()' => self::OBJ_MGR . '(\'Magento\Framework\App\RequestInterface\')',
-                'Mage::app()->getStore(' => self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->getStore(',
                 'Mage::app()->getCache()' => self::OBJ_MGR . '(\'Magento\Framework\App\Cache\Proxy\')',
                 'Mage::app()->loadCache(' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')->load(',
                 'Mage::app()->saveCache(' => self::OBJ_MGR . '(\'Magento\Framework\App\CacheInterface\')->save(',
@@ -212,6 +211,7 @@ class ConvertM1M2
                 'Mage::getConfig()->getModuleDir(' => self::OBJ_MGR . '(\'Magento\Framework\Module\Dir\Reader\')->getModuleDir(',
                 'Mage::getConfig()->getVarDir(' => self::OBJ_MGR . '(\'Magento\Framework\App\Filesystem\DirectoryList\')->getPath(\'var\') . (',
                 'Mage::getConfig()->createDirIfNotExists(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\Directory\Write\')->create(',
+                'Mage::getConfig()->reinit()' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ReinitableConfigInterface\')->reinit()',
                 'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
                 'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
                 'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
@@ -249,12 +249,16 @@ class ConvertM1M2
                 '#(}\s*catch\s*\()(Exception\s+)#' => '\1\\\\\2',
                 '#Mage::app\(\)\s*->getLocale\(\)\s*->(getLocale|emulate|revert)(Code)?\(#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->\1(',
-                '#Mage::app\(\)\s*->getLocale\(\)\s*->getDateTimeFormat\(#' =>
-                    self::OBJ_MGR . '(\'Magento\Framework\Stdlib\DateTime\TimezoneInterface\')->getDateTimeFormat(',
+                '#Mage::app\(\)\s*->getLocale\(\)\s*->(date|getDateFormat|getDateFormatWithLongYear|getTimeFormat'
+                    . '|getDateTimeFormat|storeTimeStamp)\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\Stdlib\DateTime\TimezoneInterface\')->\1(',
                 '#Mage::getBaseDir\(([\'"][a-z]+[\'"])\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirectoryWrite(\1)->getAbsolutePath()',
                 '#Mage::app\(\)->(isSingleStoreMode|getDefaultStoreView)\(\)#' =>
                     self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1()',
+                '#Mage::app\(\)->(setIsSingleStoreModeAllowed|hasSingleStore|isSingleStoreMode|getStores?|getWebsites?'
+                    . '|reinitStores|getDefaultStoreView|getGroups?|setCurrentStore)\(#' =>
+                    self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1(',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
