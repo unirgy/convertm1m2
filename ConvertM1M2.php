@@ -152,6 +152,7 @@ class ConvertM1M2
                 'Mage_Page_Model_Source_Layout' => 'Magento_Cms_Model_Page_Source_PageLayout',
                 'Mage_Page_' => 'Magento_Framework_',
                 'Mage_Rule_Model_Rule' => 'Magento_Rule_Model_AbstractModel',
+                'Mage_Sales_Model_Quote' => 'Magento_Quote_Model_Quote',
                 'Mage_Usa_Block_Adminhtml_Dhl_' => 'Magento_Dhl_Block_Adminhtml_',
                 'Mage_Usa_Model_Shipping_Carrier_Dhl_International_' => 'Magento_Dhl_Model_',
                 'Mage_Usa_Model_Shipping_Carrier_Dhl_International' => 'Magento_Dhl_Model_Carrier',
