@@ -65,11 +65,7 @@ class ConvertM1M2
 
     protected $_layouts = [];
 
-    protected $_schemas = [
-        '@XSI' => 'http://www.w3.org/2001/XMLSchema-instance',
-        '@Framework/' => '../../../../../lib/internal/Magento/Framework/', //deprecated
-        '@Magento/' => '../../../Magento/', //deprecated
-    ];
+    const XSI = 'http://www.w3.org/2001/XMLSchema-instance';
 
     const OBJ_MGR = '\Magento\Framework\App\ObjectManager::getInstance()->get';
 
@@ -772,7 +768,7 @@ EOT;
     {
         $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
         return simpledom_load_string('<?xml version="1.0" encoding="UTF-8"?>
-<' . $rootTagName . ' xmlns:xsi="' . $this->_schemas['@XSI'] . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
+<' . $rootTagName . ' xmlns:xsi="' . self::XSI . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
 </' . $rootTagName . '>');
     }
 
@@ -963,11 +959,11 @@ EOT;
             $n2 = $n1->addChild('arguments');
             $n3 = $n2->addChild('argument');
             $n3->addAttribute('name', 'secureUrlList');
-            $n3->addAttribute('xsi:type', 'array', $this->_schemas['@XSI']);
+            $n3->addAttribute('xsi:type', 'array', self::XSI);
             foreach ($xml->frontend->secure_url->children() as $itemName => $itemNode) {
                 $n4 = $n3->addChild('item', (string)$itemNode);
                 $n4->addAttribute('name', $itemName);
-                $n4->addAttribute('xsi:type', 'string', $this->_schemas['@XSI']);
+                $n4->addAttribute('xsi:type', 'string', self::XSI);
             }
         }
 
@@ -1443,7 +1439,7 @@ EOT;
                     $paramXml = $paramsXml->addChild('parameter');
                     $paramXml->addAttribute('name', $paramName);
                     $paramType = !empty($paramNode->helper_block) ? 'block' : (string)$paramNode->type;
-                    $paramXml->addAttribute('xsi:type', $paramType, $this->_schemas['@XSI']);
+                    $paramXml->addAttribute('xsi:type', $paramType, self::XSI);
                     if ((bool)$paramNode->required) {
                         $paramXml->addAttribute('required', (bool)$paramNode->required ? 'true' : 'false');
                     }
@@ -1508,12 +1504,12 @@ EOT;
         foreach ($sourceXml->children() as $itemName => $itemNode) {
             if ($itemNode->children()) {
                 $itemXml = $targetXml->addChild('item');
-                $itemXml->addAttribute('xsi:type', 'array', $this->_schemas['@XSI']);
+                $itemXml->addAttribute('xsi:type', 'array', self::XSI);
                 $this->_convertConfigWidgetDataRecursive($itemNode, $itemXml);
             } else {
                 $itemValue = (string)$itemNode;
                 $itemXml = $targetXml->addChild('item', $itemValue);
-                $itemXml->addAttribute('xsi:type', 'string', $this->_schemas['@XSI']);
+                $itemXml->addAttribute('xsi:type', 'string', self::XSI);
                 if (!is_numeric($itemValue)) {
                     $itemXml->addAttribute('translate', 'true');
                 }
@@ -1673,7 +1669,7 @@ EOT;
                                 } else {
                                     $argValue = $this->_getOpportunisticArgValue($argNode);
                                     $argXml   = $argumentsXml->addChild('argument', $argValue);
-                                    $argXml->addAttribute('xsi:type', 'string', $this->_schemas['@XSI']);
+                                    $argXml->addAttribute('xsi:type', 'string', self::XSI);
                                     if (isset($translate[$argName])) {
                                         $argXml->addAttribute('translate', 'true');
                                     }
@@ -1694,7 +1690,7 @@ EOT;
 
     protected function _convertLayoutArgumentRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
-        $targetXml->addAttribute('xsi:type', 'array', $this->_schemas['@XSI']);
+        $targetXml->addAttribute('xsi:type', 'array', self::XSI);
         foreach ($sourceXml->children() as $childTag => $childNode) {
             if ($childNode->children()) {
                 $childXml = $targetXml->addChild('item');
@@ -1702,7 +1698,7 @@ EOT;
             } else {
                 $argValue = $this->_getOpportunisticArgValue($childNode);
                 $childXml = $targetXml->addChild('item', $argValue);
-                $childXml->addAttribute('xsi:type', 'string', $this->_schemas['@XSI']);
+                $childXml->addAttribute('xsi:type', 'string', self::XSI);
             }
             $childXml->addAttribute('name', $childTag);
         }
