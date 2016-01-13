@@ -766,7 +766,6 @@ EOT;
      */
     protected function _createConfigXml($schemaPath, $rootTagName = 'config')
     {
-        $schemaPath = str_replace(array_keys($this->_schemas), array_values($this->_schemas), $schemaPath);
         return simpledom_load_string('<?xml version="1.0" encoding="UTF-8"?>
 <' . $rootTagName . ' xmlns:xsi="' . self::XSI . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
 </' . $rootTagName . '>');
@@ -1900,10 +1899,7 @@ EOT;
                 }
                 $class = $this->_getClassName('models', $classKey, false);
             }
-            $result = self::OBJ_MGR . "('{$class}')";
-            if ($m[2] === 'getModel') {
-                $result = str_replace('->get(', '->create(', $result);
-            }
+            $result = self::OBJ_MGR . "('{$class}" . ($m[2] === 'getModel' ? "Factory')->create()" : "')");
             return $result;
         }, $contents);
         $contents = preg_replace_callback('#Mage::get(Model|Singleton)\(#', function($m) {
