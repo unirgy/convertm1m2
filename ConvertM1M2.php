@@ -2061,7 +2061,7 @@ EOT;
         // Find end of the last method
         $pastEndOfClass = null;
         for ($i = $linesCnt - 1; $i > 0; $i--) {
-            if (preg_match('#^\s*\}\s*$#', $lines[$i])) {
+            if (preg_match('#^\s*\}#', $lines[$i])) {
                 if (!$pastEndOfClass) {
                     $pastEndOfClass = true;
                 } else {
@@ -2079,7 +2079,7 @@ EOT;
                     $method['end'] = $method['start'];
                 } else {
                     for ($j = $methods[$i + 1]['start'] - 1; $j > $method['start']; $j--) {
-                        if (preg_match('#^\s*(\{\s*)?\}\s*$#', $lines[$j])) {
+                        if (preg_match('#^\s*(\{\s*)?\}#', $lines[$j])) {
                             $method['end'] = $j;
                             break;
                         }
@@ -2281,7 +2281,6 @@ EOT;
     {
         static $cache = [];
         static $autoloaded = false;
-
         if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
             return false;
         }
