@@ -255,6 +255,7 @@ class ConvertM1M2
                 '#Mage::app\(\)->(setIsSingleStoreModeAllowed|hasSingleStore|isSingleStoreMode|getStores?|getWebsites?'
                     . '|reinitStores|getDefaultStoreView|getGroups?|setCurrentStore)\(#' =>
                     self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1(',
+                '#([^A-Za-z0-9])DS([^A-Za-z0-9])#' => '\1DIRECTORY_SEPARATOR\2',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
