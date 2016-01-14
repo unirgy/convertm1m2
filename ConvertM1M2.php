@@ -1188,6 +1188,20 @@ EOT;
 
     protected function _convertConfigSystemNode($type, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
+        static $childNodes = [
+            'tab' => ['label'],
+            'section' => ['label', 'class', 'tab', 'header_css'],
+            'group' => [
+                'label', 'fieldset_css', 'comment', 'frontend_model', 'clone_model', 'clone_fields',
+                'help_url', 'more_url', 'demo_link', 'hide_in_single_store_mode',
+            ],
+            'field' => [
+                'label', 'comment', 'tooltip', 'hint', 'config_path',
+                'frontend_model', 'frontend_class', 'source_model', 'backend_model',
+                'base_url', 'more_url', 'demo_url', 'button_url', 'button_label',
+                'hide_in_single_store_mode', 'upload_dir', 'if_module_enabled', 'can_be_empty', 'validate',
+            ],
+        ];
         $targetNode = $targetXml->addChild($type);
         $attr       = ['id' => $sourceXml->getName()];
         if (!empty($sourceXml['translate'])) {
@@ -1203,12 +1217,7 @@ EOT;
         foreach ($attr as $k => $v) {
             $targetNode->addAttribute($k, $v);
         }
-        $children = $type === 'tab' ? ['label'] : ['class', 'label', 'tab'];
-        if ('field' === $type) {
-            $children = array_merge($children, ['frontend_model', 'source_model', 'backend_model', 'upload_dir',
-                'base_url', 'comment']);
-        }
-        foreach ($children as $childKey) {
+        foreach ($childNodes[$type] as $childKey) {
             if (!empty($sourceXml->{$childKey})) {
                 $value = (string)$sourceXml->{$childKey};
                 if ('source_model' === $childKey || 'backend_model' === $childKey) {
