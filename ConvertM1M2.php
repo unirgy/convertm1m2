@@ -1205,13 +1205,16 @@ EOT;
         }
         $children = $type === 'tab' ? ['label'] : ['class', 'label', 'tab'];
         if ('field' === $type) {
-            $children = array_merge($children, ['source_model', 'backend_model', 'upload_dir', 'base_url', 'comment']);
+            $children = array_merge($children, ['frontend_model', 'source_model', 'backend_model', 'upload_dir',
+                'base_url', 'comment']);
         }
         foreach ($children as $childKey) {
             if (!empty($sourceXml->{$childKey})) {
                 $value = (string)$sourceXml->{$childKey};
                 if ('source_model' === $childKey || 'backend_model' === $childKey) {
                     $value = $this->_getClassName('models', $value);
+                } elseif ('frontend_model' === $childKey) {
+                    $value = $this->_getClassName('blocks', $value);
                 }
                 $targetNode->{$childKey} = $value;
                 foreach ($sourceXml->{$childKey}->attributes() as $k => $v) {
