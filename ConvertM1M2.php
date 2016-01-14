@@ -2281,7 +2281,7 @@ EOT;
     {
         static $cache = [];
         static $autoloaded = false;
-        if (!preg_match('#^\s*namespace\s+(.*);$#m', $contents, $m)) {
+        if (!preg_match('#^\s*namespace\s+(.*);\s*$#m', $contents, $m)) {
             return false;
         }
         $parentNamespace = $m[1];
