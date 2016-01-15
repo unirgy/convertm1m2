@@ -23,37 +23,8 @@
  * THE SOFTWARE.
  */
 
-if (PHP_SAPI === 'cli') {
-    $cwd = getcwd();
-    parse_str(implode('&', array_slice($argv, 1)), $_GET);
-    $sourceDir = !empty($_GET['s']) ? $_GET['s'] : "{$cwd}/source";
-    $mage1Dir = !empty($_GET['m']) ? $_GET['m'] : "{$cwd}/../magento";
-    $mage2Dir = !empty($_GET['o']) ? $_GET['o'] : "{$cwd}/../magento2";
-    $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
-} else {
-    $sourceDir = 'source';
-    $mage1Dir = '../magento';
-    $mage2Dir = '../magento2';
-    $stage = !empty($_GET['a']) ? (int)$_GET['a'] : 1;
-    echo "<pre>";
-}
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL | E_STRICT);
-
-if(!in_array('--testrun', $argv))
-{
-    $time = microtime(true);
-    include_once __DIR__ . '/SimpleDOM.php';
-    $converter = new ConvertM1M2($sourceDir, $mage1Dir, $mage2Dir);
-    $converter->convertAllExtensions($stage);
-    $converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
-    die;
-}
-
 class ConvertM1M2
 {
-
     protected $_env = [];
 
     protected $_fileCache = [];
@@ -92,7 +63,7 @@ class ConvertM1M2
 (__halt_compiler|break|list|(x)?or|var|while)
 '; // Example of use: #^( ... )$#ix
 
-    protected function _getReplaceMaps()
+    public function getReplaceMaps()
     {
         return [
             'modules' => [
@@ -224,8 +195,8 @@ class ConvertM1M2
                 ' extends Exception' => ' extends \Exception',
                 '$this->getResponse()->setBody(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RawFactory\')->create()->setContents(',
                 '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
-                '$this->_redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
-                '$this->_forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
+                '$this->redirect(' => self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
+                '$this->forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
             ],
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
@@ -305,7 +276,7 @@ class ConvertM1M2
 
         spl_autoload_register([$this, 'autoloadCallback']);
 
-        $this->_replace = $this->_getReplaceMaps();
+        $this->_replace = $this->getReplaceMaps();
     }
 
     public function autoloadCallback($class)
@@ -349,8 +320,8 @@ class ConvertM1M2
     public function convertAllExtensions($stage)
     {
         if ($stage === 1) {
-            $this->_collectCoreModulesConfigs();
-            $this->_collectCoreModulesLayouts();
+            $this->collectCoreModulesConfigs();
+            $this->collectCoreModulesLayouts();
         }
 
         $this->log('')->log("[INFO] LOOKING FOR ALL EXTENSIONS IN {$this->_env['source_dir']}")->log('');
@@ -362,15 +333,15 @@ class ConvertM1M2
             }
             switch ($stage) {
                 case 1:
-                    $this->_convertExtensionStage1($m[2], $m[1]);
+                    $this->convertExtensionStage1($m[2], $m[1]);
                     break;
 
                 case 2:
-                    $this->_convertExtensionStage2($m[2]);
+                    $this->convertExtensionStage2($m[2]);
                     break;
 
                 case 3:
-                    #$this->_convertExtensionStage3($m[2]);
+                    #$this->convertExtensionStage3($m[2]);
                     break;
             }
         }
@@ -378,7 +349,7 @@ class ConvertM1M2
         return $this;
     }
 
-    protected function _convertExtensionStage1($extName, $rootDir)
+    public function convertExtensionStage1($extName, $rootDir)
     {
         $this->_autoloadMode = 'm1';
 
@@ -397,16 +368,16 @@ class ConvertM1M2
 
         $this->_fileCache = [];
 
-        $this->_convertGenerateMetaFiles();
-        $this->_convertAllConfigs();
-        $this->_convertAllControllers();
-        $this->_convertAllObservers();
-        $this->_convertAllLayouts();
-        $this->_convertAllTemplates();
-        $this->_convertAllWebAssets();
-        $this->_convertAllI18n();
-        $this->_convertAllOtherFiles();
-        $this->_convertAllPhpFilesDI();
+        $this->convertGenerateMetaFiles();
+        $this->convertAllConfigs();
+        $this->convertAllControllers();
+        $this->convertAllObservers();
+        $this->convertAllLayouts();
+        $this->convertAllTemplates();
+        $this->convertAllWebAssets();
+        $this->convertAllI18n();
+        $this->convertAllOtherFiles();
+        $this->convertAllPhpFilesDI();
 
         $this->log("[SUCCESS] FINISHED: {$extName}")->log('');
 
@@ -443,7 +414,7 @@ class ConvertM1M2
         return $this;
     }
 
-    protected function _expandSourcePath($path)
+    public function expandSourcePath($path)
     {
         if ($path[0] !== '/' && $path[1] !== ':') {
             $path = $this->_env['ext_root_dir'] . '/' . $path;
@@ -453,7 +424,7 @@ class ConvertM1M2
         return $path;
     }
 
-    protected function _expandOutputPath($path)
+    public function expandOutputPath($path)
     {
         if ($path[0] !== '/' && $path[1] !== ':') {
             $path = $this->_env['ext_output_dir'] . '/' . $path;
@@ -461,14 +432,14 @@ class ConvertM1M2
         return $path;
     }
 
-    protected function _readFile($filename, $expand = false)
+    public function readFile($filename, $expand = false)
     {
         $this->_currentFile = [
             'filename' => $filename,
         ];
 
         if ($expand) {
-            $filename = $this->_expandSourcePath($filename);
+            $filename = $this->expandSourcePath($filename);
         }
 
         if (isset($this->_fileCache[$filename])) {
@@ -493,10 +464,10 @@ class ConvertM1M2
         return $content;
     }
 
-    protected function _writeFile($filename, $content, $expand = false)
+    public function writeFile($filename, $content, $expand = false)
     {
         if ($expand) {
-            $filename = $this->_expandOutputPath($filename);
+            $filename = $this->expandOutputPath($filename);
         }
 
         $dir = dirname($filename);
@@ -511,11 +482,11 @@ class ConvertM1M2
         }
     }
 
-    protected function _copyFile($src, $dst, $expand = false)
+    public function copyFile($src, $dst, $expand = false)
     {
         if ($expand) {
-            $src = $this->_expandSourcePath($src);
-            $dst = $this->_expandOutputPath($dst);
+            $src = $this->expandSourcePath($src);
+            $dst = $this->expandOutputPath($dst);
         }
 
         $dir = dirname($dst);
@@ -526,14 +497,14 @@ class ConvertM1M2
         copy($src, $dst);
     }
 
-    protected function _copyRecursive($src, $dst, $expand = false)
+    public function copyRecursive($src, $dst, $expand = false)
     {
         if ($expand) {
-            $src = $this->_expandSourcePath($src);
+            $src = $this->expandSourcePath($src);
             if (!file_exists($src)) {
                 return;
             }
-            $dst = $this->_expandOutputPath($dst);
+            $dst = $this->expandOutputPath($dst);
         }
 
         $dir = opendir($src);
@@ -541,7 +512,7 @@ class ConvertM1M2
         while (false !== ($file = readdir($dir))) {
             if (($file !== '.') && ($file !== '..')) {
                 if (is_dir($src . '/' . $file)) {
-                    $this->_copyRecursive($src . '/' . $file, $dst . '/' . $file);
+                    $this->copyRecursive($src . '/' . $file, $dst . '/' . $file);
                 } else {
                     copy($src . '/' . $file, $dst . '/' . $file);
                 }
@@ -550,10 +521,10 @@ class ConvertM1M2
         closedir($dir);
     }
 
-    protected function _deleteFile($filename, $expand = false)
+    public function deleteFile($filename, $expand = false)
     {
         if ($expand) {
-            $filename = $this->_expandOutputPath($filename);
+            $filename = $this->expandOutputPath($filename);
         }
 
         if (file_exists($filename)) {
@@ -577,10 +548,10 @@ class ConvertM1M2
         */
     }
 
-    protected function _findFilesRecursive($dir, $expand = false)
+    public function findFilesRecursive($dir, $expand = false)
     {
         if ($expand) {
-            $dir = $this->_expandSourcePath($dir);
+            $dir = $this->expandSourcePath($dir);
         }
         if (!file_exists($dir)) {
             return [];
@@ -596,7 +567,7 @@ class ConvertM1M2
         return $files;
     }
 
-    protected function _collectCoreModulesConfigs()
+    public function collectCoreModulesConfigs()
     {
         $this->log("[INFO] COLLECTING M1 CONFIGURATION...")->log('');
         $configFiles = glob($this->_env['mage1_dir'] . '/app/code/*/*/*/etc/config.xml');
@@ -619,7 +590,7 @@ class ConvertM1M2
         return $this;
     }
 
-    protected function _collectCoreModulesLayouts()
+    public function collectCoreModulesLayouts()
     {
         $this->log("[INFO] COLLECTING M1 LAYOUTS...")->log('');
         $layoutFiles = glob($this->_env['mage1_dir'] . '/app/design/*/*/*/layout/*.xml');
@@ -629,14 +600,14 @@ class ConvertM1M2
             $blocks = $xml->xpath('//block');
             foreach ($blocks as $blockNode) {
                 if ($blockNode['type'] && $blockNode['name']) {
-                    $className = $this->_getClassName('blocks', (string)$blockNode['type'], false);
+                    $className = $this->getClassName('blocks', (string)$blockNode['type'], false);
                     $this->_layouts[$m[1]]['blocks'][(string)$blockNode['name']] = $className;
                 }
             }
         }
     }
 
-    protected function _getClassName($type, $moduleClassKey, $m2 = true)
+    public function getClassName($type, $moduleClassKey, $m2 = true)
     {
         $mk = explode('/', strtolower($moduleClassKey), 2);
         if (empty($mk[1])) {
@@ -679,15 +650,15 @@ class ConvertM1M2
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertGenerateMetaFiles()
+    public function convertGenerateMetaFiles()
     {
-        $this->_convertGenerateComposerFile();
-        $this->_convertGenerateRegistrationFile();
+        $this->convertGenerateComposerFile();
+        $this->convertGenerateRegistrationFile();
     }
 
-    protected function _convertGenerateComposerFile()
+    public function convertGenerateComposerFile()
     {
-        $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml1    = $this->readFile("@EXT/etc/config.xml", true);
         $extName = $this->_env['ext_name'];
         $version = !empty($xml1->modules->{$extName}->version) ? (string)$xml1->modules->{$extName}->version : '0.0.1';
 
@@ -719,10 +690,10 @@ class ConvertM1M2
                 ]
             ]
         ];
-        $this->_writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT), true);
+        $this->writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT), true);
     }
 
-    protected function _convertGenerateRegistrationFile()
+    public function convertGenerateRegistrationFile()
     {
         $regCode = <<<EOT
 <?php
@@ -735,32 +706,32 @@ class ConvertM1M2
 
 EOT;
 
-        $this->_writeFile('registration.php', $regCode, true);
+        $this->writeFile('registration.php', $regCode, true);
     }
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllConfigs()
+    public function convertAllConfigs()
     {
-        $this->_convertConfigModule();
-        $this->_convertConfigDefaults();
-        $this->_convertConfigAcl();
-        $this->_convertConfigResources();
-        $this->_convertConfigDI();
-        $this->_convertConfigFrontendDI();
-        $this->_convertConfigAdminhtmlDI();
-        $this->_convertConfigEvents();
-        $this->_convertConfigRoutesFrontend();
-        $this->_convertConfigRoutesAdmin();
-        $this->_convertConfigMenu();
-        $this->_convertConfigSystem();
-        $this->_convertConfigCrontab();
-        $this->_convertConfigEmailTemplates();
-        $this->_convertConfigCatalogAttributes();
-        $this->_convertConfigFieldset();
-        $this->_convertConfigSales();
-        $this->_convertConfigPdf();
-        $this->_convertConfigWidget();
+        $this->convertConfigModule();
+        $this->convertConfigDefaults();
+        $this->convertConfigAcl();
+        $this->convertConfigResources();
+        $this->convertConfigDI();
+        $this->convertConfigFrontendDI();
+        $this->convertConfigAdminhtmlDI();
+        $this->convertConfigEvents();
+        $this->convertConfigRoutesFrontend();
+        $this->convertConfigRoutesAdmin();
+        $this->convertConfigMenu();
+        $this->convertConfigSystem();
+        $this->convertConfigCrontab();
+        $this->convertConfigEmailTemplates();
+        $this->convertConfigCatalogAttributes();
+        $this->convertConfigFieldset();
+        $this->convertConfigSales();
+        $this->convertConfigPdf();
+        $this->convertConfigWidget();
     }
 
     /**
@@ -768,20 +739,20 @@ EOT;
      * @param string $rootTagName
      * @return SimpleDOM
      */
-    protected function _createConfigXml($schemaPath, $rootTagName = 'config')
+    public function createConfigXml($schemaPath, $rootTagName = 'config')
     {
         return simpledom_load_string('<?xml version="1.0" encoding="UTF-8"?>
 <' . $rootTagName . ' xmlns:xsi="' . self::XSI . '" xsi:noNamespaceSchemaLocation="' . $schemaPath . '">
 </' . $rootTagName . '>');
     }
 
-    protected function _convertConfigModule()
+    public function convertConfigModule()
     {
         $extName = $this->_env['ext_name'];
-        $xml1    = $this->_readFile("@EXT/etc/config.xml", true);
-        $xml2    = $this->_readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
+        $xml1    = $this->readFile("@EXT/etc/config.xml", true);
+        $xml2    = $this->readFile("app/etc/modules/{$this->_env['ext_name']}.xml", true);
 
-        $resultXml = $this->_createConfigXml('urn:magento:framework:Module/etc/module.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:framework:Module/etc/module.xsd');
         $targetXml = $resultXml->addChild('module');
         $targetXml->addAttribute('name', $extName);
         if (!empty($xml1->modules->{$extName}->version)) {
@@ -797,19 +768,19 @@ EOT;
             }
         }
 
-        $this->_writeFile('etc/module.xml', $resultXml, true);
+        $this->writeFile('etc/module.xml', $resultXml, true);
     }
 
-    protected function _convertConfigDefaults()
+    public function convertConfigDefaults()
     {
-        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Store:etc/config.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:module:Magento_Store:etc/config.xsd');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml1 = $this->readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->default)) {
             $resultXml->appendChild($xml1->default->cloneNode(true));
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/magento2.xml");
+        $xml2 = $this->readFile("@EXT/etc/magento2.xml");
         if ($xml2) {
             if (!empty($xml2->convert->custom_config)) {
                 foreach ($xml2->convert->custom_config->children() as $metaNode) {
@@ -825,35 +796,35 @@ EOT;
         }
 
         if ($resultXml->children()) {
-            $this->_writeFile('etc/config.xml', $resultXml, true);
+            $this->writeFile('etc/config.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/config.xml', true);
+            $this->deleteFile('etc/config.xml', true);
         }
     }
 
-    protected function _convertConfigAcl()
+    public function convertConfigAcl()
     {
-        $resultXml = $this->_createConfigXml('urn:magento:framework:Acl/etc/acl.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:framework:Acl/etc/acl.xsd');
         $targetXml = $resultXml->addChild('acl')->addChild('resources');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml1 = $this->readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->acl)) {
-            $this->_convertConfigAclRecursive($xml1->adminhtml->acl->resources, $targetXml);
+            $this->convertConfigAclRecursive($xml1->adminhtml->acl->resources, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
+        $xml2 = $this->readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
-            $this->_convertConfigAclRecursive($xml2->acl->resources, $targetXml);
+            $this->convertConfigAclRecursive($xml2->acl->resources, $targetXml);
         }
 
         if ($targetXml->children()) {
-            $this->_writeFile('etc/acl.xml', $resultXml, true);
+            $this->writeFile('etc/acl.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/acl.xml', true);
+            $this->deleteFile('etc/acl.xml', true);
         }
     }
 
-    protected function _convertConfigAclRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $path = '')
+    public function convertConfigAclRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $path = '')
     {
         foreach ($sourceXml->children() as $key => $sourceNode) {
             $attr = [];
@@ -891,18 +862,18 @@ EOT;
             }
 
             if (!empty($sourceNode->children)) {
-                $this->_convertConfigAclRecursive($sourceNode->children, $targetNode, $path . $key . '/');
+                $this->convertConfigAclRecursive($sourceNode->children, $targetNode, $path . $key . '/');
             }
         }
     }
 
-    protected function _convertConfigResources()
+    public function convertConfigResources()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->resources)) {
 
-            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/resources.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:framework:App/etc/resources.xsd');
 
             foreach ($xml->global->resources->children() as $resKey => $resNode) {
                 if (empty($resNode->connection->use)) {
@@ -913,17 +884,17 @@ EOT;
                 $targetNode->addAttribute('extends', (string)$resNode->connection->use);
             }
 
-            $this->_writeFile('etc/resources.xml', $resultXml, true);
+            $this->writeFile('etc/resources.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/resources.xml', true);
+            $this->deleteFile('etc/resources.xml', true);
         }
     }
 
-    protected function _convertConfigDI()
+    public function convertConfigDI()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         foreach (['models', 'helpers', 'blocks'] as $type) {
             if (empty($xml->global->{$type})) {
@@ -934,7 +905,7 @@ EOT;
                     continue;
                 }
                 foreach ($mNode->rewrite->children() as $classKey => $cNode) {
-                    $origClass   = $this->_getClassName($type, $moduleKey . '/' . $classKey);
+                    $origClass   = $this->getClassName($type, $moduleKey . '/' . $classKey);
                     $targetClass = str_replace('_', '\\', (string)$cNode);
                     $prefNode    = $resultXml->addChild('preference');
                     $prefNode->addAttribute('for', $origClass);
@@ -944,17 +915,17 @@ EOT;
         }
 
         if ($resultXml->children()) {
-            $this->_writeFile('etc/di.xml', $resultXml, true);
+            $this->writeFile('etc/di.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/di.xml', true);
+            $this->deleteFile('etc/di.xml', true);
         }
     }
 
-    protected function _convertConfigFrontendDI()
+    public function convertConfigFrontendDI()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:framework:ObjectManager/etc/config.xsd');
 
         if (!empty($xml->frontend->secure_url)) {
             $n1 = $resultXml->addChild('type');
@@ -971,26 +942,26 @@ EOT;
         }
 
         if ($resultXml->children()) {
-            $this->_writeFile('etc/frontend/di.xml', $resultXml, true);
+            $this->writeFile('etc/frontend/di.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/frontend/di.xml', true);
+            $this->deleteFile('etc/frontend/di.xml', true);
         }
     }
 
-    protected function _convertConfigAdminhtmlDI()
+    public function convertConfigAdminhtmlDI()
     {
 
     }
 
-    protected function _convertConfigEvents()
+    public function convertConfigEvents()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         foreach (['global' => '', 'frontend' => 'frontend/', 'adminhtml' => 'adminhtml/'] as $area => $areaDir) {
             $xmlFilename = 'etc/' . $areaDir . 'events.xml';
 
             if (!empty($xml->{$area}->events)) {
-                $resultXml = $this->_createConfigXml('urn:magento:framework:Event/etc/events.xsd');
+                $resultXml = $this->createConfigXml('urn:magento:framework:Event/etc/events.xsd');
 
                 foreach ($xml->{$area}->events->children() as $eventName => $eventNode) {
                     $targetEventNode = $resultXml->addChild('event');
@@ -998,7 +969,7 @@ EOT;
                     foreach ($eventNode->observers->children() as $obsName => $obsNode) {
                         $targetObsNode = $targetEventNode->addChild('observer');
                         $targetObsNode->addAttribute('name', $obsName);
-                        $instance = $this->_getClassName('models', (string)$obsNode->class) . '\\'
+                        $instance = $this->getClassName('models', (string)$obsNode->class) . '\\'
                             . str_replace(' ', '', ucwords(str_replace('_', ' ', (string)$obsNode->method)));
                         $instance = str_replace('\\Model\\Observer\\', '\\Observer\\', $instance);
                         $targetObsNode->addAttribute('instance', $instance);
@@ -1008,21 +979,21 @@ EOT;
                         }
                     }
                 }
-                $this->_writeFile($xmlFilename, $resultXml, true);
+                $this->writeFile($xmlFilename, $resultXml, true);
             } else {
-                $this->_deleteFile($xmlFilename, true);
+                $this->deleteFile($xmlFilename, true);
             }
         }
     }
 
-    protected function _convertConfigRoutesFrontend()
+    public function convertConfigRoutesFrontend()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         $xmlFilename = 'etc/frontend/routes.xml';
 
         if (!empty($xml->frontend->routers)) {
-            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:framework:App/etc/routes.xsd');
 
             $targetRouters = [];
             foreach ($xml->frontend->routers->children() as $routeName => $routeNode) {
@@ -1036,20 +1007,20 @@ EOT;
                 $targetRouteNode->addAttribute('frontName', (string)$routeNode->args->frontName);
                 $targetRouteNode->addChild('module')->addAttribute('name', (string)$routeNode->args->module);
             }
-            $this->_writeFile($xmlFilename, $resultXml, true);
+            $this->writeFile($xmlFilename, $resultXml, true);
         } else {
-            $this->_deleteFile($xmlFilename, true);
+            $this->deleteFile($xmlFilename, true);
         }
     }
 
-    protected function _convertConfigRoutesAdmin()
+    public function convertConfigRoutesAdmin()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         $xmlFilename = 'etc/adminhtml/routes.xml';
 
         if (!empty($xml->admin->routers->adminhtml->args->modules)) {
-            $resultXml = $this->_createConfigXml('urn:magento:framework:App/etc/routes.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:framework:App/etc/routes.xsd');
 
             $routerName    = 'admin';
             $targetRouters = [];
@@ -1078,35 +1049,35 @@ EOT;
                 }
             }
 
-            $this->_writeFile($xmlFilename, $resultXml, true);
+            $this->writeFile($xmlFilename, $resultXml, true);
         } else {
-            $this->_deleteFile($xmlFilename, true);
+            $this->deleteFile($xmlFilename, true);
         }
     }
 
-    protected function _convertConfigMenu()
+    public function convertConfigMenu()
     {
-        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Backend:etc/menu.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:module:Magento_Backend:etc/menu.xsd');
         $targetXml = $resultXml->addChild('menu');
 
-        $xml1 = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml1 = $this->readFile("@EXT/etc/config.xml", true);
         if (!empty($xml1->adminhtml->menu)) {
-            $this->_convertConfigMenuRecursive($xml1->adminhtml->menu, $targetXml);
+            $this->convertConfigMenuRecursive($xml1->adminhtml->menu, $targetXml);
         }
 
-        $xml2 = $this->_readFile("@EXT/etc/adminhtml.xml", true);
+        $xml2 = $this->readFile("@EXT/etc/adminhtml.xml", true);
         if ($xml2 && !empty($xml2->acl)) {
-            $this->_convertConfigMenuRecursive($xml2->menu, $targetXml);
+            $this->convertConfigMenuRecursive($xml2->menu, $targetXml);
         }
 
         if ($targetXml->children()) {
-            $this->_writeFile('etc/adminhtml/menu.xml', $resultXml, true);
+            $this->writeFile('etc/adminhtml/menu.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/adminhtml/menu.xml', true);
+            $this->deleteFile('etc/adminhtml/menu.xml', true);
         }
     }
 
-    protected function _convertConfigMenuRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $parent = null)
+    public function convertConfigMenuRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $parent = null)
     {
         foreach ($sourceXml->children() as $key => $srcNode) {
             if (!empty($this->_replace['menu'][$key])) {
@@ -1148,49 +1119,49 @@ EOT;
             }
             if (!empty($srcNode->children)) {
                 $nextParent = !empty($attr['title']) ? $attr['id'] : null;
-                $this->_convertConfigMenuRecursive($srcNode->children, $targetXml, $nextParent);
+                $this->convertConfigMenuRecursive($srcNode->children, $targetXml, $nextParent);
             }
         }
     }
 
-    protected function _convertConfigSystem()
+    public function convertConfigSystem()
     {
-        $xml = $this->_readFile("@EXT/etc/system.xml", true);
+        $xml = $this->readFile("@EXT/etc/system.xml", true);
         if ($xml) {
-            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Config:etc/system_file.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:module:Magento_Config:etc/system_file.xsd');
             $targetXml = $resultXml->addChild('system');
 
             if (!empty($xml->tabs)) {
                 foreach ($xml->tabs->children() as $tabId => $tabNode) {
-                    $this->_convertConfigSystemNode('tab', $tabNode, $targetXml);
+                    $this->convertConfigSystemNode('tab', $tabNode, $targetXml);
                 }
             }
             if (!empty($xml->sections)) {
                 foreach ($xml->sections->children() as $sectionId => $sectionNode) {
-                    $targetSectionNode = $this->_convertConfigSystemNode('section', $sectionNode, $targetXml);
+                    $targetSectionNode = $this->convertConfigSystemNode('section', $sectionNode, $targetXml);
                     $targetSectionNode->addChild('resource', $this->_env['ext_name'] . '::system_config');
                     if (empty($sectionNode->groups)) {
                         continue;
                     }
                     foreach ($sectionNode->groups->children() as $groupId => $groupNode) {
-                        $targetGroupNode = $this->_convertConfigSystemNode('group', $groupNode, $targetSectionNode);
+                        $targetGroupNode = $this->convertConfigSystemNode('group', $groupNode, $targetSectionNode);
                         if (empty($groupNode->fields)) {
                             continue;
                         }
                         foreach ($groupNode->fields->children() as $fieldId => $fieldNode) {
-                            $this->_convertConfigSystemNode('field', $fieldNode, $targetGroupNode);
+                            $this->convertConfigSystemNode('field', $fieldNode, $targetGroupNode);
                         }
                     }
                 }
             }
 
-            $this->_writeFile('etc/adminhtml/system.xml', $resultXml, true);
+            $this->writeFile('etc/adminhtml/system.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/adminhtml/system.xml', true);
+            $this->deleteFile('etc/adminhtml/system.xml', true);
         }
     }
 
-    protected function _convertConfigSystemNode($type, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    public function convertConfigSystemNode($type, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         static $childNodes = [
             'tab' => ['label'],
@@ -1225,7 +1196,7 @@ EOT;
             if (!empty($sourceXml->{$childKey})) {
                 $value = (string)$sourceXml->{$childKey};
                 if ('source_model' === $childKey || 'backend_model' === $childKey) {
-                    $value = $this->_getClassName('models', $value);
+                    $value = $this->getClassName('models', $value);
                 } elseif ('frontend_model' === $childKey) {
                     $value = $this->_getClassName('blocks', $value);
                 }
@@ -1238,11 +1209,11 @@ EOT;
         return $targetNode;
     }
 
-    protected function _convertConfigCrontab()
+    public function convertConfigCrontab()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
         if (!empty($xml->crontab)) {
-            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Cron:etc/crontab.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:module:Magento_Cron:etc/crontab.xsd');
             $targetXml = $resultXml->addChild('group');
             $targetXml->addAttribute('id', 'default');
 
@@ -1251,24 +1222,24 @@ EOT;
                 $targetJobNode->addAttribute('name', $jobName);
                 if (!empty($jobNode->run->model)) {
                     list($classAlias, $method) = explode('::', (string)$jobNode->run->model);
-                    $targetJobNode->addAttribute('instance', $this->_getClassName('models', $classAlias));
+                    $targetJobNode->addAttribute('instance', $this->getClassName('models', $classAlias));
                     $targetJobNode->addAttribute('method', $method);
                 }
                 $targetJobNode->addChild('schedule', (string)$jobNode->schedule->cron_expr);
             }
 
-            $this->_writeFile('etc/crontab.xml', $resultXml, true);
+            $this->writeFile('etc/crontab.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/crontab.xml', true);
+            $this->deleteFile('etc/crontab.xml', true);
         }
     }
 
-    protected function _convertConfigEmailTemplates()
+    public function convertConfigEmailTemplates()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->template->email)) {
-            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Email:etc/email_templates.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:module:Magento_Email:etc/email_templates.xsd');
 
             foreach ($xml->global->template->email->children() as $tplName => $tplNode) {
                 $targetNode = $resultXml->addChild('template');
@@ -1282,17 +1253,17 @@ EOT;
                 }
             }
 
-            $this->_writeFile('etc/email_templates.xml', $resultXml, true);
+            $this->writeFile('etc/email_templates.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/email_templates.xml', true);
+            $this->deleteFile('etc/email_templates.xml', true);
         }
     }
 
-    protected function _convertConfigCatalogAttributes()
+    public function convertConfigCatalogAttributes()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Catalog:etc/catalog_attributes.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:module:Magento_Catalog:etc/catalog_attributes.xsd');
 
         //TODO: other types?
         if (!empty($xml->global->sales->quote->item->product_attributes)) {
@@ -1305,18 +1276,18 @@ EOT;
         }
 
         if ($resultXml->children()) {
-            $this->_writeFile('etc/catalog_attributes.xml', $resultXml, true);
+            $this->writeFile('etc/catalog_attributes.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/catalog_attributes.xml', true);
+            $this->deleteFile('etc/catalog_attributes.xml', true);
         }
     }
 
-    protected function _convertConfigFieldset()
+    public function convertConfigFieldset()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->fieldsets)) {
-            $resultXml = $this->_createConfigXml('urn:magento:framework:Object/etc/fieldset.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:framework:Object/etc/fieldset.xsd');
             $targetXml = $resultXml->addChild('scope');
             $targetXml->addAttribute('id', 'global');
 
@@ -1336,17 +1307,17 @@ EOT;
                 }
             }
 
-            $this->_writeFile('etc/fieldset.xml', $resultXml, true);
+            $this->writeFile('etc/fieldset.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/fieldset.xml', true);
+            $this->deleteFile('etc/fieldset.xml', true);
         }
     }
 
-    protected function _convertConfigSales()
+    public function convertConfigSales()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
-        $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/sales.xsd');
+        $resultXml = $this->createConfigXml('urn:magento:module:Magento_Sales:etc/sales.xsd');
 
         if (!empty($xml->global->sales)) {
             foreach ($xml->global->sales->children() as $sectionName => $sectionNode) {
@@ -1363,7 +1334,7 @@ EOT;
                         continue; //TODO: how to handle updates?
                     }
                     $targetItemNode = $targetGroupNode->addChild('item');
-                    $class          = $this->_getClassName('models', (string)$totalNode->class);
+                    $class          = $this->getClassName('models', (string)$totalNode->class);
                     $targetItemNode->addAttribute('instance', $class);
                     $targetItemNode->addAttribute('sort_order', $sortOrder);
                     $sortOrder += 10; //TODO: calculate by before/after attrs??
@@ -1380,18 +1351,18 @@ EOT;
         }
 
         if ($resultXml->children()) {
-            $this->_writeFile('etc/sales.xml', $resultXml, true);
+            $this->writeFile('etc/sales.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/sales.xml', true);
+            $this->deleteFile('etc/sales.xml', true);
         }
     }
 
-    protected function _convertConfigPdf()
+    public function convertConfigPdf()
     {
-        $xml = $this->_readFile("@EXT/etc/config.xml", true);
+        $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->pdf)) {
-            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Sales:etc/pdf_file.xsd');
+            $resultXml = $this->createConfigXml('urn:magento:module:Magento_Sales:etc/pdf_file.xsd');
 
             $renderersXml = null;
 
@@ -1415,31 +1386,31 @@ EOT;
                     $targetPageTypeNode = $renderersXml->addChild('page');
                     $targetPageTypeNode->addAttribute('type', $type);
                     foreach ($typeNode->children() as $prodType => $prodTypeNode) {
-                        $className          = $this->_getClassName('models', (string)$prodTypeNode);
+                        $className          = $this->getClassName('models', (string)$prodTypeNode);
                         $targetProdTypeNode = $targetPageTypeNode->addChild('renderer', $className);
                         $targetProdTypeNode->addAttribute('product_type', $prodType);
                     }
                 }
             }
 
-            $this->_writeFile('etc/pdf.xml', $resultXml, true);
+            $this->writeFile('etc/pdf.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/pdf.xml', true);
+            $this->deleteFile('etc/pdf.xml', true);
         }
     }
 
-    protected function _convertConfigWidget()
+    public function convertConfigWidget()
     {
         /** @var SimpleDOM $xml */
-        $xml = $this->_readFile("@EXT/etc/widget.xml", true);
+        $xml = $this->readFile("@EXT/etc/widget.xml", true);
 
         if ($xml) {
-            $resultXml = $this->_createConfigXml('urn:magento:module:Magento_Widget:etc/widget.xsd', 'widgets');
+            $resultXml = $this->createConfigXml('urn:magento:module:Magento_Widget:etc/widget.xsd', 'widgets');
 
             foreach ($xml->children() as $widgetName => $widgetNode) {
                 $widgetXml = $resultXml->addChild('widget');
                 $widgetXml->addAttribute('id', $widgetName);
-                $widgetXml->addAttribute('class', $this->_getClassName('blocks', $widgetNode['type']));
+                $widgetXml->addAttribute('class', $this->getClassName('blocks', $widgetNode['type']));
                 $widgetXml->addAttribute('is_email_compatible', (bool)$widgetNode->is_email_compatible ? 'true' : 'false');
                 $labelXml = $widgetXml->addChild('label', (string)$widgetNode->name);
                 $labelXml->addAttribute('translate', 'true');
@@ -1466,7 +1437,7 @@ EOT;
                         $descXml->addAttribute('translate', 'true');
                     }
                     if (!empty($paramNode->source_model)) {
-                        $sourceModel = $this->_getClassName('models', (string)$paramNode->source_model);
+                        $sourceModel = $this->getClassName('models', (string)$paramNode->source_model);
                         $paramXml->addAttribute('source_model', $sourceModel);
                     }
                     if (!empty($paramNode->depends)) {
@@ -1494,23 +1465,23 @@ EOT;
                     }
                     if (!empty($paramNode->helper_block)) {
                         $blockXml   = $paramXml->addChild('block');
-                        $blockClass = $this->_getClassName('blocks', (string)$paramNode->helper_block->type);
+                        $blockClass = $this->getClassName('blocks', (string)$paramNode->helper_block->type);
                         $blockXml->addAttribute('class', $blockClass);
                         if (!empty($paramNode->helper_block->data)) {
                             $dataXml = $blockXml->addChild('data');
-                            $this->_convertConfigWidgetDataRecursive($paramNode->helper_block->data, $dataXml);
+                            $this->convertConfigWidgetDataRecursive($paramNode->helper_block->data, $dataXml);
                         }
                     }
                 }
             }
 
-            $this->_writeFile('etc/widget.xml', $resultXml, true);
+            $this->writeFile('etc/widget.xml', $resultXml, true);
         } else {
-            $this->_deleteFile('etc/widget.xml', true);
+            $this->deleteFile('etc/widget.xml', true);
         }
     }
 
-    protected function _convertConfigWidgetDataRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    public function convertConfigWidgetDataRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         /**
          * @var string $itemName
@@ -1520,7 +1491,7 @@ EOT;
             if ($itemNode->children()) {
                 $itemXml = $targetXml->addChild('item');
                 $itemXml->addAttribute('xsi:type', 'array', self::XSI);
-                $this->_convertConfigWidgetDataRecursive($itemNode, $itemXml);
+                $this->convertConfigWidgetDataRecursive($itemNode, $itemXml);
             } else {
                 $itemValue = (string)$itemNode;
                 $itemXml = $targetXml->addChild('item', $itemValue);
@@ -1535,29 +1506,29 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllLayouts()
+    public function convertAllLayouts()
     {
-        $this->_convertLayoutAreaTheme('adminhtml', 'default/default');
-        $this->_convertLayoutAreaTheme('frontend', 'default/default');
-        $this->_convertLayoutAreaTheme('frontend', 'base/default');
+        $this->convertLayoutAreaTheme('adminhtml', 'default/default');
+        $this->convertLayoutAreaTheme('frontend', 'default/default');
+        $this->convertLayoutAreaTheme('frontend', 'base/default');
     }
 
-    protected function _convertLayoutAreaTheme($area, $theme)
+    public function convertLayoutAreaTheme($area, $theme)
     {
         $dir = "{$this->_env['ext_root_dir']}/app/design/{$area}/{$theme}/layout";
-        $files = $this->_findFilesRecursive($dir);
-        $outputDir = $this->_expandOutputPath("view/{$area}/layout");
+        $files = $this->findFilesRecursive($dir);
+        $outputDir = $this->expandOutputPath("view/{$area}/layout");
         foreach ($files as $file) {
-            $this->_convertLayoutFile($area, $dir . '/' . $file, $outputDir);
+            $this->convertLayoutFile($area, $dir . '/' . $file, $outputDir);
         }
     }
 
-    protected function _convertLayoutFile($area, $file, $outputDir)
+    public function convertLayoutFile($area, $file, $outputDir)
     {
-        $xml = $this->_readFile($file);
+        $xml = $this->readFile($file);
 
         foreach ($xml->children() as $layoutName => $layoutNode) {
-            $resultXml = $this->_createConfigXml('urn:magento:framework:View/Layout/etc/page_configuration.xsd', 'page');
+            $resultXml = $this->createConfigXml('urn:magento:framework:View/Layout/etc/page_configuration.xsd', 'page');
             $headXml = $resultXml->addChild('head');
             $bodyXml = $resultXml->addChild('body');
             foreach ($layoutNode->children() as $nodeTag => $node) {
@@ -1579,14 +1550,14 @@ EOT;
                     case 'reference':
                         if ((string)$node['name'] === 'head') {
                             foreach ($node->children() as $headNode) {
-                                $this->_convertLayoutHeadNode($headNode, $headXml);
+                                $this->convertLayoutHeadNode($headNode, $headXml);
                             }
                             break;
                         }
                     //nobreak;
 
                     case 'block':
-                        $this->_convertLayoutRecursive($area, $node, $bodyXml);
+                        $this->convertLayoutRecursive($area, $node, $bodyXml);
                         break;
 
 
@@ -1601,11 +1572,11 @@ EOT;
                 unset($bodyXml[0][0]);
             }
 
-            $this->_writeFile("{$outputDir}/{$layoutName}.xml", $resultXml);
+            $this->writeFile("{$outputDir}/{$layoutName}.xml", $resultXml);
         }
     }
 
-    protected function _convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    public function convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         foreach ($sourceXml->children() as $child) {
             $path = $this->_env['ext_name'] . '::' . (string)$child;
@@ -1627,7 +1598,7 @@ EOT;
         }
     }
 
-    protected function _convertLayoutRecursive($area, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    public function convertLayoutRecursive($area, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         $tagName = $sourceXml->getName();
         switch ($tagName) {
@@ -1649,7 +1620,7 @@ EOT;
             case 'block':
                 $nodeName = (string)$sourceXml['name'];
                 $nodeType = (string)$sourceXml['type'];
-                $blockClass = $this->_getClassName('blocks', $nodeType);
+                $blockClass = $this->getClassName('blocks', $nodeType);
                 if (is_subclass_of($blockClass, 'Mage_Core_Block_Text_List')) {
                     $targetChildXml = $targetXml->addChild('container');
                     $targetChildXml->addAttribute('label', $nodeName); //TODO: no source info for that...
@@ -1680,9 +1651,9 @@ EOT;
                             foreach ($childXml->children() as $argName => $argNode) {
                                 if ($argNode->children()) {
                                     $argXml = $argumentsXml->addChild('argument');
-                                    $this->_convertLayoutArgumentRecursive($argNode, $argXml);
+                                    $this->convertLayoutArgumentRecursive($argNode, $argXml);
                                 } else {
-                                    $argValue = $this->_getOpportunisticArgValue($argNode);
+                                    $argValue = $this->getOpportunisticArgValue($argNode);
                                     $argXml   = $argumentsXml->addChild('argument', $argValue);
                                     $argXml->addAttribute('xsi:type', 'string', self::XSI);
                                     if (isset($translate[$argName])) {
@@ -1696,22 +1667,22 @@ EOT;
 
                     case 'reference':
                     case 'block':
-                        $this->_convertLayoutRecursive($area, $childXml, $targetChildXml);
+                        $this->convertLayoutRecursive($area, $childXml, $targetChildXml);
                         break;
                 }
             }
         }
     }
 
-    protected function _convertLayoutArgumentRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
+    public function convertLayoutArgumentRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         $targetXml->addAttribute('xsi:type', 'array', self::XSI);
         foreach ($sourceXml->children() as $childTag => $childNode) {
             if ($childNode->children()) {
                 $childXml = $targetXml->addChild('item');
-                $this->_convertLayoutArgumentRecursive($childNode, $childXml);
+                $this->convertLayoutArgumentRecursive($childNode, $childXml);
             } else {
-                $argValue = $this->_getOpportunisticArgValue($childNode);
+                $argValue = $this->getOpportunisticArgValue($childNode);
                 $childXml = $targetXml->addChild('item', $argValue);
                 $childXml->addAttribute('xsi:type', 'string', self::XSI);
             }
@@ -1719,7 +1690,7 @@ EOT;
         }
     }
 
-    protected function _getOpportunisticArgValue($value)
+    public function getOpportunisticArgValue($value)
     {
         $value = (string)$value;
 
@@ -1728,15 +1699,15 @@ EOT;
         }
 
         if (preg_match('#^[A-Za-z_]+/[A-Za-z0-9_]+$#', $value)) {
-            $class = $this->_getClassName('models', $value);
+            $class = $this->getClassName('models', $value);
             if ($class) {
                 return $class;
             }
-            $class = $this->_getClassName('helpers', $value);
+            $class = $this->getClassName('helpers', $value);
             if ($class) {
                 return $class;
             }
-            $class = $this->_getClassName('blocks', $value);
+            $class = $this->getClassName('blocks', $value);
             if ($class) {
                 return $class;
             }
@@ -1747,72 +1718,72 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllTemplates()
+    public function convertAllTemplates()
     {
-        $this->_convertTemplatesAreaTheme('adminhtml', 'default/default');
-        $this->_convertTemplatesAreaTheme('frontend', 'default/default');
-        $this->_convertTemplatesAreaTheme('frontend', 'base/default');
-        $this->_convertTemplatesEmails();
+        $this->convertTemplatesAreaTheme('adminhtml', 'default/default');
+        $this->convertTemplatesAreaTheme('frontend', 'default/default');
+        $this->convertTemplatesAreaTheme('frontend', 'base/default');
+        $this->convertTemplatesEmails();
     }
 
-    protected function _convertTemplatesAreaTheme($area, $theme)
+    public function convertTemplatesAreaTheme($area, $theme)
     {
         $dir = "{$this->_env['ext_root_dir']}/app/design/{$area}/{$theme}/template";
-        $files = $this->_findFilesRecursive($dir);
-        $outputDir = $this->_expandOutputPath("view/{$area}/templates");
+        $files = $this->findFilesRecursive($dir);
+        $outputDir = $this->expandOutputPath("view/{$area}/templates");
         foreach ($files as $filename) {
-            $contents = $this->_readFile("{$dir}/{$filename}");
-            $contents = $this->_convertCodeContents($contents, 'phtml');
-            $this->_writeFile("{$outputDir}/{$filename}", $contents);
+            $contents = $this->readFile("{$dir}/{$filename}");
+            $contents = $this->convertCodeContents($contents, 'phtml');
+            $this->writeFile("{$outputDir}/{$filename}", $contents);
         }
     }
 
-    protected function _convertTemplatesEmails()
+    public function convertTemplatesEmails()
     {
         $area = 'frontend'; //TODO: any way to know from M1?
         $dir = "{$this->_env['ext_root_dir']}/app/locale/en_US/template/email";
-        $outputDir = $this->_expandOutputPath("view/{$area}/email");
-        #$this->_copyRecursive($dir, $outputDir);
-        $files = $this->_findFilesRecursive($dir);
+        $outputDir = $this->expandOutputPath("view/{$area}/email");
+        #$this->copyRecursive($dir, $outputDir);
+        $files = $this->findFilesRecursive($dir);
         foreach ($files as $filename) {
-            $this->_copyFile("{$dir}/{$filename}", "{$outputDir}/{$filename}");
-            #$contents = $this->_readFile("{$dir}/{$filename}");
-            #$this->_writeFile("{$outputDir}/{$filename}", $contents);
+            $this->copyFile("{$dir}/{$filename}", "{$outputDir}/{$filename}");
+            #$contents = $this->readFile("{$dir}/{$filename}");
+            #$this->writeFile("{$outputDir}/{$filename}", $contents);
         }
     }
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllI18n()
+    public function convertAllI18n()
     {
         $dir = "{$this->_env['ext_root_dir']}/app/locale";
         $files = glob("{$dir}/*/*.csv");
-        $outputDir = $this->_expandOutputPath("i18n");
+        $outputDir = $this->expandOutputPath("i18n");
         foreach ($files as $file) {
             if (!preg_match('#([a-z][a-z]_[A-Z][A-Z])[\\\\/].*(\.csv)#', $file, $m)) {
                 continue;
             }
-            $this->_copyFile($file, "{$outputDir}/{$m[1]}{$m[2]}");
-            #$contents = $this->_readFile($file);
-            #$this->_writeFile("{$outputDir}/{$m[1]}{$m[2]}", $contents);
+            $this->copyFile($file, "{$outputDir}/{$m[1]}{$m[2]}");
+            #$contents = $this->readFile($file);
+            #$this->writeFile("{$outputDir}/{$m[1]}{$m[2]}", $contents);
         }
     }
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllWebAssets()
+    public function convertAllWebAssets()
     {
-        $this->_copyRecursive('js', 'view/frontend/web/js', true);
-        $this->_copyRecursive('media', 'view/frontend/web/media', true);
-        $this->_copyRecursive('skin/adminhtml/default/default', 'view/adminhtml/web', true);
-        $this->_copyRecursive('skin/frontend/base/default', 'view/frontend/web', true);
+        $this->copyRecursive('js', 'view/frontend/web/js', true);
+        $this->copyRecursive('media', 'view/frontend/web/media', true);
+        $this->copyRecursive('skin/adminhtml/default/default', 'view/adminhtml/web', true);
+        $this->copyRecursive('skin/frontend/base/default', 'view/frontend/web', true);
     }
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllOtherFiles()
+    public function convertAllOtherFiles()
     {
-        $dir = $this->_expandSourcePath("@EXT/");
+        $dir = $this->expandSourcePath("@EXT/");
         $files = glob("{$dir}*");
         $targetDir = $this->_env['ext_output_dir'];
         foreach ($files as $file) {
@@ -1824,15 +1795,15 @@ EOT;
             $targetFile = "{$targetDir}/{$basename}";
             if (is_dir($file)) {
                 if ($basename[0] >= 'A' && $basename[0] <= 'Z') {
-                    $this->_convertPhpClasses($basename);
+                    $this->convertPhpClasses($basename);
                 } else {
-                    $this->_copyRecursive($file, $targetFile);
+                    $this->copyRecursive($file, $targetFile);
                 }
             } else {
                 if ('php' === $fileExt) {
-                    $contents = $this->_readFile($file);
-                    $contents = $this->_convertCodeContents($contents);
-                    $this->_writeFile($targetFile, $contents);
+                    $contents = $this->readFile($file);
+                    $contents = $this->convertCodeContents($contents);
+                    $this->writeFile($targetFile, $contents);
                 } else {
                     copy($file, $targetFile);
                 }
@@ -1840,29 +1811,29 @@ EOT;
         }
     }
 
-    protected function _convertPhpClasses($folder, $callback = null)
+    public function convertPhpClasses($folder, $callback = null)
     {
-        $dir = $this->_expandSourcePath("@EXT/{$folder}");
-        $files = $this->_findFilesRecursive($dir);
+        $dir = $this->expandSourcePath("@EXT/{$folder}");
+        $files = $this->findFilesRecursive($dir);
         sort($files);
-        $targetDir = $this->_expandOutputPath($folder);
+        $targetDir = $this->expandOutputPath($folder);
         $fromName = array_keys($this->_replace['files_regex']);
         $toName = array_values($this->_replace['files_regex']);
         foreach ($files as $filename) {
-            $contents = $this->_readFile("{$dir}/{$filename}");
+            $contents = $this->readFile("{$dir}/{$filename}");
             $targetFile = "{$targetDir}/{$filename}";
             if ($callback) {
                 $params = ['source_file' => $filename, 'target_file' => &$targetFile];
                 $contents = call_user_func($callback, $contents, $params);
             } else {
-                $contents = $this->_convertCodeContents($contents);
+                $contents = $this->convertCodeContents($contents);
                 $targetFile = preg_replace($fromName, $toName, $targetFile);
             }
-            $this->_writeFile($targetFile, $contents);
+            $this->writeFile($targetFile, $contents);
         }
     }
 
-    protected function _convertCodeContents($contents, $mode = 'php')
+    public function convertCodeContents($contents, $mode = 'php')
     {
         $this->_currentFile = [
             'filename' => $this->_currentFile['filename'],
@@ -1882,20 +1853,20 @@ EOT;
         $contents = preg_replace(array_keys($codeTr), array_values($codeTr), $contents);
 
         if ($mode === 'php') {
-            $contents = $this->_convertCodeContentsPhpMode($contents);
+            $contents = $this->convertCodeContentsPhpMode($contents);
         }
         if ($mode === 'phtml') {
             $contents = str_replace(self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
                 '$block->getLayout()', $contents);
         }
-        $contents = $this->_convertShortArraySyntax($contents);
+        $contents = $this->convertShortArraySyntax($contents);
 
         // convert block name to block class
         $contents = preg_replace_callback('#(->createBlock\([\'"])([^\'"]+)([\'"]\))#', function($m) {
-            return $m[1] . $this->_getClassName('blocks', $m[2]) . $m[3];
+            return $m[1] . $this->getClassName('blocks', $m[2]) . $m[3];
         }, $contents);
         $contents = preg_replace_callback('#Mage::getBlockSingleton\(([\'"])([A-Za-z_/]+)([\'"])\)#', function($m) {
-            return static::OBJ_MGR . "({$m[1]}" . $this->_getClassName('blocks', $m[2]) . "{$m[3]})";
+            return static::OBJ_MGR . "({$m[1]}" . $this->getClassName('blocks', $m[2]) . "{$m[3]})";
         }, $contents);
 
         // Replace getModel|getSingleton|helper calls with ObjectManager::get calls
@@ -1903,7 +1874,7 @@ EOT;
         $contents = preg_replace_callback($re, function($m) {
             $classKey = $m[3];
             if ($m[2] === 'helper' || $m[1] === '$this->helper') {
-                $class = $this->_getClassName('helpers', $classKey, false);
+                $class = $this->getClassName('helpers', $classKey, false);
             } else {
                 if ($m[2] === 'getResourceModel') {
                     list($modKey, $clsKey) = explode('/', $classKey);
@@ -1913,7 +1884,7 @@ EOT;
                         $classKey = "{$modKey}_mysql4/{$clsKey}";
                     }
                 }
-                $class = $this->_getClassName('models', $classKey, false);
+                $class = $this->getClassName('models', $classKey, false);
             }
             $result = self::OBJ_MGR . "('{$class}" . ($m[2] === 'getModel' ? "Factory')->create()" : "')");
             return $result;
@@ -1971,9 +1942,9 @@ EOT;
         return $contents;
     }
 
-    protected function _convertCodeContentsPhpMode($contents)
+    public function convertCodeContentsPhpMode($contents)
     {
-        // Replace $this->_init() in models and resources with class names and table names
+        // Replace $this->init() in models and resources with class names and table names
         $contents = preg_replace_callback('#(\$this->_init\([\'"])([A-Za-z0-9_/]+)([\'"])#', function ($m) {
             $filename = $this->_currentFile['filename'];
             $cls = explode('/', $m[2]);
@@ -1986,8 +1957,8 @@ EOT;
             }
             if (preg_match('#/Model/(Mysql4|Resource)/.*/Collection\.php$#', $filename)) {
                 if ($resKey) {
-                    $model    = $this->_getClassName('models', $m[2], true);
-                    $resModel = $this->_getClassName('models', $resKey, true);
+                    $model    = $this->getClassName('models', $m[2], true);
+                    $resModel = $this->getClassName('models', $resKey, true);
                     return $m[1] . $model . $m[3] . ', ' . $m[3] . $resModel . $m[3];
                 } else {
                     $this->log("[WARN] No resource model for {$m[2]}");
@@ -1997,7 +1968,7 @@ EOT;
                 return $m[1] . str_replace('/', '_', $m[2]) . $m[3]; //TODO: try to figure out original table name
             } elseif (preg_match('#/Model/#', $filename)) {
                 if ($resKey) {
-                    $resModel = $this->_getClassName('models', $resKey, true);
+                    $resModel = $this->getClassName('models', $resKey, true);
                     return $m[1] . $resModel . $m[3];
                 } else {
                     $this->log("[WARN] No resource model for {$m[2]}");
@@ -2011,7 +1982,7 @@ EOT;
         return $contents;
     }
 
-    protected function _convertCodeParseMethods($contents, $fileType = false, $returnResult = false)
+    public function convertCodeParseMethods($contents, $fileType = false, $returnResult = false)
     {
         $nl = $this->_currentFile['nl'];
 
@@ -2135,7 +2106,7 @@ EOT;
         return $contents;
     }
 
-    protected function _convertCodeObjectManagerToDI($contents)
+    public function convertCodeObjectManagerToDI($contents)
     {
         $objMgrRe = preg_quote(self::OBJ_MGR, '#');
         if (!preg_match_all("#{$objMgrRe}\(['\"]([\\\\A-Za-z0-9]+?)['\"]\)#", $contents, $matches, PREG_SET_ORDER)) {
@@ -2147,7 +2118,7 @@ EOT;
         $declared = [];
         $pad = '    ';
 
-        $parentArgs = $this->_convertDIGetParentConstructArgs($contents);
+        $parentArgs = $this->convertDIGetParentConstructArgs($contents);
         $constructArgs = $parentArgs['args'];
         $constructParentArgs = $parentArgs['parent_args'];
         $optionalArgsStart = $parentArgs['optional'];
@@ -2213,7 +2184,7 @@ EOT;
         return $contents;
     }
 
-    protected function _convertDIGetParentConstructArgs($contents)
+    public function convertDIGetParentConstructArgs($contents)
     {
         static $cache = [];
 
@@ -2225,7 +2196,7 @@ EOT;
             'has_parent' => false,
         ];
 
-        $parentResult = $this->_convertFindParentConstruct($contents);
+        $parentResult = $this->convertFindParentConstruct($contents);
         if (!$parentResult) {
             return $result;
         }
@@ -2236,7 +2207,7 @@ EOT;
         }
         $parentContents = $parentResult['contents'];
 
-        $parentMethods = $this->_convertCodeParseMethods($parentContents, false, true);
+        $parentMethods = $this->convertCodeParseMethods($parentContents, false, true);
         $parentConstruct = null;
         foreach ($parentMethods as $method) {
             if ($method['name'] === '__construct') {
@@ -2268,7 +2239,7 @@ EOT;
             return $result;
         }
         foreach ($matches as $i => $m) {
-            $argClass = $this->_convertGetFullClassName($parentContents, $parentConstructClass, $m[1]);
+            $argClass = $this->convertGetFullClassName($parentContents, $parentConstructClass, $m[1]);
             $result['classes'][$argClass] = 1;
             $result['args'][] = rtrim($argClass . ' ' . $m[2] . $m[3]);
             $result['parent_args'][] = $m[2];
@@ -2280,7 +2251,7 @@ EOT;
         return $result;
     }
 
-    protected function _convertFindParentConstruct($contents, $first = true)
+    public function convertFindParentConstruct($contents, $first = true)
     {
         static $cache = [];
         static $autoloaded = false;
@@ -2292,7 +2263,7 @@ EOT;
         if (!preg_match('#^\s*((abstract|final)\s+)?class\s+([^\s]+)\s+extends\s+([^\s]+)#m', $contents, $m)) {
             return false;
         }
-        $parentClass = $this->_convertGetFullClassName($contents, $parentNamespace . '\\' . $m[3], $m[4]);
+        $parentClass = $this->convertGetFullClassName($contents, $parentNamespace . '\\' . $m[3], $m[4]);
 
         if (!empty($cache[$parentClass])) {
             return $cache[$parentClass];
@@ -2342,7 +2313,7 @@ EOT;
                 'contents' => $parentContents,
             ];
         } else {
-            $result = $this->_convertFindParentConstruct($parentContents, false);
+            $result = $this->convertFindParentConstruct($parentContents, false);
         }
 
         if ($result && $first) {
@@ -2359,7 +2330,7 @@ EOT;
      * @param $shortClass
      * @return string full class with first backslash for consistency
      */
-    protected function _convertGetFullClassName($contents, $contentsClass, $shortClass)
+    public function convertGetFullClassName($contents, $contentsClass, $shortClass)
     {
         static $useLineRe = '#^\s*use\s+([\\\\A-Za-z0-9]+\\\\([A-Za-z0-9]+))(\s+as\s+([A-Za-z0-9]+))?\s*;$#m';
         static $useCache = [];
@@ -2395,7 +2366,7 @@ EOT;
         return $fullClass;
     }
 
-    protected function _convertNamespaceUse($contents)
+    public function convertNamespaceUse($contents)
     {
         #return $contents;#
 
@@ -2460,12 +2431,12 @@ EOT;
         return $contents;
     }
 
-    protected function _convertShortArraySyntax($contents)
+    public function convertShortArraySyntax($contents)
     {
         $tokens = token_get_all($contents);
         for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
             if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
-                $this->_convertShortArraySyntaxRecursive($tokens, $i, $size);
+                $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
             }
         }
         $result = [];
@@ -2477,7 +2448,7 @@ EOT;
         return join('', $result);
     }
 
-    protected function _convertShortArraySyntaxRecursive(&$tokens, &$start, $size)
+    public function convertShortArraySyntaxRecursive(&$tokens, &$start, $size)
     {
         for ($i = $start + 1; $i < $size; $i++) {
             if ($tokens[$i] === '(') {
@@ -2493,7 +2464,7 @@ EOT;
         $bracketLevel = 0;
         for ($i = $i + 1; $i < $size; $i++) {
             if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
-                $this->_convertShortArraySyntaxRecursive($tokens, $i, $size);
+                $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
             } elseif ($tokens[$i] === '(') {
                 $bracketLevel++;
             } elseif ($tokens[$i] === ')') {
@@ -2510,17 +2481,17 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllControllers()
+    public function convertAllControllers()
     {
-        $dir = $this->_expandSourcePath('@EXT/controllers');
-        $files = $this->_findFilesRecursive($dir);
-        $targetDir = $this->_expandOutputPath('Controller');
+        $dir = $this->expandSourcePath('@EXT/controllers');
+        $files = $this->findFilesRecursive($dir);
+        $targetDir = $this->expandOutputPath('Controller');
         foreach ($files as $file) {
-            $this->_convertController($file, $dir, $targetDir);
+            $this->convertController($file, $dir, $targetDir);
         }
     }
 
-    protected function _convertController($file, $sourceDir, $targetDir)
+    public function convertController($file, $sourceDir, $targetDir)
     {
         $targetFile = preg_replace(['#Controller\.php$#', '#/[^/]+admin/#'], ['.php', '/Adminhtml/'],
             "{$targetDir}/{$file}");
@@ -2531,12 +2502,12 @@ EOT;
         $fileClass = preg_replace(['#Controller$#', '#[^_]+admin_#'], ['', 'Adminhtml_'], $fileClass);
         $ctrlClass = "{$this->_env['ext_name']}_Controller_{$fileClass}";
 
-        $contents = $this->_readFile("{$sourceDir}/{$file}");
+        $contents = $this->readFile("{$sourceDir}/{$file}");
 
         if (strpos($file, 'Controller.php') === false) {
             $contents = str_replace($origClass, $ctrlClass, $contents);
-            $contents = $this->_convertCodeContents($contents);
-            $this->_writeFile($targetFile, $contents, false);
+            $contents = $this->convertCodeContents($contents);
+            $this->writeFile($targetFile, $contents, false);
             return;
         }
 
@@ -2545,11 +2516,11 @@ EOT;
 
         #$this->log('CONTROLLER: ' . $origClass);
         $contents = str_replace($origClass, $abstractClass, $contents);
-        $contents = $this->_convertCodeContents($contents);
-        $contents = $this->_convertCodeParseMethods($contents, 'controller');
-        $contents = $this->_convertControllerContext($contents);
+        $contents = $this->convertCodeContents($contents);
+        $contents = $this->convertCodeParseMethods($contents, 'controller');
+        $contents = $this->convertControllerContext($contents);
 
-        $this->_writeFile($targetFile, $contents);
+        $this->writeFile($targetFile, $contents);
 
         $nl = $this->_currentFile['nl'];
         foreach ($this->_currentFile['methods'] as $method) {
@@ -2566,17 +2537,17 @@ EOT;
             $txt = preg_replace('#(public\s+function\s+)([a-zA-Z0-9_]+)(\()#', '$1execute$3', $methodContents);
             $classContents = "<?php{$nl}{$nl}class {$actionClass} extends {$abstractClass}{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
-            $classContents = $this->_convertCodeContents($classContents);
-            $classContents = $this->_convertControllerContext($classContents);
+            $classContents = $this->convertCodeContents($classContents);
+            $classContents = $this->convertControllerContext($classContents);
 
             $actionFile = str_replace([$this->_env['ext_name'] . '_', '_'], ['', '/'], $actionClass) . '.php';
             $targetActionFile = "{$this->_env['ext_output_dir']}/{$actionFile}";
 
-            $this->_writeFile($targetActionFile, $classContents, false);
+            $this->writeFile($targetActionFile, $classContents, false);
         }
     }
 
-    protected function _convertControllerContext($contents)
+    public function convertControllerContext($contents)
     {
         $map = [
             self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')' => '$this->messageManager',
@@ -2591,19 +2562,19 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllObservers()
+    public function convertAllObservers()
     {
         //TODO: scan config.xml for observer callbacks?
-        $path = $this->_expandSourcePath('@EXT/Model/Observer.php');
+        $path = $this->expandSourcePath('@EXT/Model/Observer.php');
         if (file_exists($path)) {
-            $targetDir = $this->_expandOutputPath('Observer');
-            $this->_convertObserver($path, $targetDir);
+            $targetDir = $this->expandOutputPath('Observer');
+            $this->convertObserver($path, $targetDir);
         }
     }
 
-    protected function _convertObserver($sourceFile, $targetDir)
+    public function convertObserver($sourceFile, $targetDir)
     {
-        $contents = $this->_readFile($sourceFile);
+        $contents = $this->readFile($sourceFile);
         $classStartRe = '#^\s*((abstract|final)\s+)?class\s+([A-Za-z0-9_]+)(\s+extends\s+([A-Za-z0-9_]+))?#m';
         if (!preg_match($classStartRe, $contents, $m)) {
             $this->log('[WARN] Invalid observer class: ' . $sourceFile);
@@ -2616,10 +2587,10 @@ EOT;
         $contents = str_replace($origClass, $abstractClass, $contents);
 
         #$this->log('CONTROLLER: ' . $origClass);
-        $contents = $this->_convertCodeContents($contents);
-        $contents = $this->_convertCodeParseMethods($contents, 'observer');
+        $contents = $this->convertCodeContents($contents);
+        $contents = $this->convertCodeParseMethods($contents, 'observer');
 
-        $this->_writeFile($targetDir . '/AbstractObserver.php', $contents);
+        $this->writeFile($targetDir . '/AbstractObserver.php', $contents);
 
         $nl = $this->_currentFile['nl'];
         $funcRe = '#(public\s+function\s+)([a-zA-Z0-9_]+)(\([^)]+\))#';
@@ -2635,21 +2606,21 @@ EOT;
             $classContents = "<?php{$nl}{$nl}class {$obsClass} extends {$abstractClass} implements "
                 ."\\Magento\\Framework\\Event\\ObserverInterface{$nl}{{$nl}{$txt}{$nl}}{$nl}";
 
-            $classContents = $this->_convertCodeContents($classContents);
+            $classContents = $this->convertCodeContents($classContents);
 
             $targetObsFile = "{$targetDir}/{$obsName}.php";
 
-            $this->_writeFile($targetObsFile, $classContents, false);
+            $this->writeFile($targetObsFile, $classContents, false);
         }
     }
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertAllPhpFilesDI()
+    public function convertAllPhpFilesDI()
     {
         #spl_autoload_unregister([$this, 'autoloadCallback']);
         $this->_autoloadMode = 'm2';
-        $files = $this->_findFilesRecursive($this->_env['ext_output_dir']);
+        $files = $this->findFilesRecursive($this->_env['ext_output_dir']);
         sort($files);
         foreach ($files as $file) {
             if ($file === 'registration.php' || 'php' !== pathinfo($file, PATHINFO_EXTENSION)) {
@@ -2663,9 +2634,9 @@ EOT;
                 'class' => $class,
                 'nl' => preg_match('#(\\r\\n|\\r|\\n)#', $contents, $m) ? $m[0] : "\r\n",
             ];
-            $contents = $this->_convertCodeObjectManagerToDI($contents);
-            $contents = $this->_convertNamespaceUse($contents);
-            $this->_writeFile($fullFilename, $contents);
+            $contents = $this->convertCodeObjectManagerToDI($contents);
+            $contents = $this->convertNamespaceUse($contents);
+            $this->writeFile($fullFilename, $contents);
         }
         $this->_autoloadMode = 'm1';
         #spl_autoload_register([$this, 'autoloadCallback']);
@@ -2673,7 +2644,7 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
-    protected function _convertExtensionStage2($extName)
+    public function convertExtensionStage2($extName)
     {
         $this->_autoloadMode = 'm2';
 
@@ -2685,7 +2656,7 @@ EOT;
         }
 
         $extDir = str_replace('_', '/', $extName);
-        $files = $this->_findFilesRecursive("{$this->_env['mage2_code_dir']}/{$extDir}");
+        $files = $this->findFilesRecursive("{$this->_env['mage2_code_dir']}/{$extDir}");
         foreach ($files as $file) {
             if ('php' !== pathinfo($file, PATHINFO_EXTENSION)) {
                 continue;
