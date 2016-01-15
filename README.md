@@ -56,7 +56,7 @@ developers to have more time for tasks that can not be automated, such as:
 The script is fully standalone and self-contained, with the exception of SimpleDOM.php library, which is included in the 
 package.
 
-Fork/clone the repository, and edit ConvertM1M2.php file configuration (at the beginning of the file) if/as necessary.
+Fork/clone the repository, and edit convert.php file configuration (at the beginning of the file) if/as necessary.
 
 The script can be ran from the Web or CLI, and allows conversion of multiple extensions at the same time.
 
@@ -73,7 +73,7 @@ When running from the web, no parameters can be accepted, and the script expects
 
 When running from CLI, the following parameters are accepted (all optional):
 
-`php ConvertM1M2.php s=source m=mage1_folder o=output a=stage`
+`php convert.php s=source m=mage1_folder o=output a=stage`
 
 An example of file and folders structure:
 
@@ -81,7 +81,7 @@ An example of file and folders structure:
     [] Web or CLI root
     |
     +-[] convertm1m2/
-    | +-() ConvertM1M2.php   - execute this script
+    | +-() convert.php   - execute this script
     | +-[] source/
     |   +-[] Vendor_Module1/ - here are all the original files of your Magento1 extension, with full folder structure
     |   +-[] Vendor_Module2/
@@ -105,8 +105,8 @@ An example of file and folders structure:
 ## Steps after automatic conversion
 
   * Run stage 2 to check that classes can be loaded by php without errors
-    * `http://127.0.0.1/convertm1m2/ConvertM1M2.php?a=2` OR
-    * `$ php ConvertM1M2.php a=2`
+    * `http://127.0.0.1/convertm1m2/convert.php?a=2` OR
+    * `$ php convert.php a=2`
   * Fix any parent or interface classes as these could have been changed
   * Fix any constructors or other methods arguments as they might have been changed
   * Go over all the output files and try to understand what they mean and how they map to respective functionality in M1 code.
