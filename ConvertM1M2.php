@@ -41,12 +41,15 @@ if (PHP_SAPI === 'cli') {
 ini_set('display_errors', 1);
 error_reporting(E_ALL | E_STRICT);
 
-$time = microtime(true);
-include_once __DIR__ . '/SimpleDOM.php';
-$converter = new ConvertM1M2($sourceDir, $mage1Dir, $mage2Dir);
-$converter->convertAllExtensions($stage);
-$converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
-die;
+if(!in_array('--testrun', $argv))
+{
+    $time = microtime(true);
+    include_once __DIR__ . '/SimpleDOM.php';
+    $converter = new ConvertM1M2($sourceDir, $mage1Dir, $mage2Dir);
+    $converter->convertAllExtensions($stage);
+    $converter->log('[SUCCESS] ALL DONE (' . (microtime(true) - $time) . ' sec)')->log('');
+    die;
+}
 
 class ConvertM1M2
 {
