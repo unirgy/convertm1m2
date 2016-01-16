@@ -63,6 +63,10 @@ class ConvertM1M2
 (__halt_compiler|break|list|(x)?or|var|while)
 '; // Example of use: #^( ... )$#ix
 
+    protected $_currentFile;
+
+    protected $_autoloadMode = 'm1';
+
     public function getReplaceMaps()
     {
         return [
@@ -253,13 +257,9 @@ class ConvertM1M2
         ];
     }
 
-    protected $_currentFile;
-
-    protected $_autoloadMode = 'm1';
-
-    public function __construct($rootDir, $mage1Dir, $mage2Dir)
+    public function __construct($sourceDir, $mage1Dir, $mage2Dir)
     {
-        $this->_env['source_dir']     = str_replace('\\', '/', $rootDir);
+        $this->_env['source_dir']     = str_replace('\\', '/', $sourceDir);
         $this->_env['mage1_dir']      = str_replace('\\', '/', $mage1Dir);
         $this->_env['mage2_dir']      = str_replace('\\', '/', $mage2Dir);
         $this->_env['mage2_code_dir'] = $this->_env['mage2_dir'] . '/app/code';
@@ -434,6 +434,15 @@ class ConvertM1M2
 
     public function readFile($filename, $expand = false)
     {
+        if ($this->_testMode) {
+            if (empty($this->_testInputFiles)) {
+                throw new BException('No test files in pipeline');
+            }
+            $file = array_shift($this->_testInputFiles);
+            $this->_currentFile = ['filename' => $file['filename']];
+            return $file['contents'];
+        }
+
         $this->_currentFile = [
             'filename' => $filename,
         ];
@@ -464,8 +473,16 @@ class ConvertM1M2
         return $content;
     }
 
-    public function writeFile($filename, $content, $expand = false)
+    public function writeFile($filename, $contents, $expand = false)
     {
+        if ($this->_testMode) {
+            $this->_testOutputFiles[] = [
+                'filename' => $filename,
+                'contents' => ($contents instanceof SimpleXMLElement) ? $contents->asPrettyXml() : $contents,
+            ];
+            return $this;
+        }
+
         if ($expand) {
             $filename = $this->expandOutputPath($filename);
         }
@@ -475,15 +492,20 @@ class ConvertM1M2
             mkdir($dir, 0777, true);
         }
 
-        if ($content instanceof SimpleXMLElement) {
-            $content->asPrettyXml($filename);
+        if ($contents instanceof SimpleXMLElement) {
+            $contents->asPrettyXml($filename);
         } else {
-            file_put_contents($filename, $content);
+            file_put_contents($filename, $contents);
         }
+        return $this;
     }
 
     public function copyFile($src, $dst, $expand = false)
     {
+        if ($this->_testMode) {
+            return false; //TODO: what to do in test mode?
+        }
+
         if ($expand) {
             $src = $this->expandSourcePath($src);
             $dst = $this->expandOutputPath($dst);
@@ -495,14 +517,19 @@ class ConvertM1M2
         }
 
         copy($src, $dst);
+        return true;
     }
 
     public function copyRecursive($src, $dst, $expand = false)
     {
+        if ($this->_testMode) {
+            return false; //TODO: what to do in test mode?
+        }
+
         if ($expand) {
             $src = $this->expandSourcePath($src);
             if (!file_exists($src)) {
-                return;
+                return false;
             }
             $dst = $this->expandOutputPath($dst);
         }
@@ -519,10 +546,15 @@ class ConvertM1M2
             }
         }
         closedir($dir);
+        return true;
     }
 
     public function deleteFile($filename, $expand = false)
     {
+        if ($this->_testMode) {
+            return false; //TODO: what to do in test mode?
+        }
+
         if ($expand) {
             $filename = $this->expandOutputPath($filename);
         }
@@ -531,25 +563,30 @@ class ConvertM1M2
             unlink($filename);
         }
         /*
-                $dir = dirname($filename);
-                if (file_exists($dir)) {
-                    $empty = true;
-                    $dirFiles = glob($dir . '/*');
-                    foreach ($dirFiles as $file) {
-                        if (!preg_match('#(^|/)\.+$#', $file)) {
-                            $empty = false;
-                            break;
-                        }
-                    }
-                    if ($empty) {
-                        unlink($dir);
-                    }
+        $dir = dirname($filename);
+        if (file_exists($dir)) {
+            $empty = true;
+            $dirFiles = glob($dir . '/*');
+            foreach ($dirFiles as $file) {
+                if (!preg_match('#(^|/)\.+$#', $file)) {
+                    $empty = false;
+                    break;
                 }
+            }
+            if ($empty) {
+                unlink($dir);
+            }
+        }
         */
+        return $this;
     }
 
     public function findFilesRecursive($dir, $expand = false)
     {
+        if ($this->_testMode) {
+            return []; //TODO: what to do in test mode?
+        }
+
         if ($expand) {
             $dir = $this->expandSourcePath($dir);
         }
@@ -605,6 +642,7 @@ class ConvertM1M2
                 }
             }
         }
+        return $this;
     }
 
     public function getClassName($type, $moduleClassKey, $m2 = true)
@@ -1198,7 +1236,7 @@ EOT;
                 if ('source_model' === $childKey || 'backend_model' === $childKey) {
                     $value = $this->getClassName('models', $value);
                 } elseif ('frontend_model' === $childKey) {
-                    $value = $this->_getClassName('blocks', $value);
+                    $value = $this->getClassName('blocks', $value);
                 }
                 $targetNode->{$childKey} = $value;
                 foreach ($sourceXml->{$childKey}->attributes() as $k => $v) {
@@ -2669,5 +2707,38 @@ EOT;
                 $this->log('[ERROR] Class not found: ' . $class);
             }
         }
+    }
+
+    ///////////////////////////////////////////////////////////
+
+    protected $_testMode = false;
+
+    protected $_testInputFiles = [];
+
+    protected $_testOutputFiles = [];
+
+    public function setTestMode($testMode = true)
+    {
+        $this->_testMode = $testMode;
+        return $this;
+    }
+
+    public function addTestInputFile($contents, $filename = null)
+    {
+        $this->_testInputFiles[] = ['contents' => $contents, 'filename' => $filename];
+        return $this;
+    }
+
+    public function getTestOutputFile($filename = null)
+    {
+        if (empty($this->_testOutputFiles)) {
+            return null; // no files in output queue
+        }
+        foreach ($this->_testOutputFiles as $file) {
+            if ($filename === null || $filename === $file['filename']) {
+                return $file['contents'];
+            }
+        }
+        return false; // file not found
     }
 }
