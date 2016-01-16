@@ -23,7 +23,6 @@
  * THE SOFTWARE.
  */
 
-
 class ConvertM1M2
 {
     protected $_env = [];
