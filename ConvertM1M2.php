@@ -2620,7 +2620,8 @@ EOT;
         }
 
         $origClass = $m[3];
-        $abstractClass = str_replace('_Model_Observer', '_Observer_AbstractObserver', $origClass);
+        $obsBaseClass = str_replace('_Model_Observer', '_Observer', $origClass);
+        $abstractClass = $obsBaseClass . '_AbstractObserver';
 
         $contents = str_replace($origClass, $abstractClass, $contents);
 
@@ -2638,7 +2639,7 @@ EOT;
                 continue;
             }
             $obsName = str_replace(' ', '', ucwords(str_replace('_', ' ', $method['name'])));
-            $obsClass = "{$origClass}_{$obsName}";
+            $obsClass = "{$obsBaseClass}_{$obsName}";
             $methodContents = join($nl, $method['lines']);
             $txt = preg_replace($funcRe, $funcExecute, $methodContents);
             $classContents = "<?php{$nl}{$nl}class {$obsClass} extends {$abstractClass} implements "
