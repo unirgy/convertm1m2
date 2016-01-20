@@ -63,6 +63,8 @@ class ConvertM1M2
 (__halt_compiler|break|list|(x)?or|var|while)
 '; // Example of use: #^( ... )$#ix
 
+    protected $_skipConvertToDiRegex = '#(\\\\Session$)#';
+
     protected $_currentFile;
 
     protected $_autoloadMode = 'm1';
@@ -148,7 +150,6 @@ class ConvertM1M2
                 'Zend_Log' => 'Zend_Log_Logger',
                 'Zend_Db_Adapter_Abstract' => 'Magento_Framework_DB_Adapter_AdapterInterface',
                 'Zend_Db_Expr' => '\\Zend_Db_Expr',
-                'Zend_Db_' => 'Magento_Framework_DB_',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_(Abstract|New|List)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
@@ -168,6 +169,7 @@ class ConvertM1M2
                 '#Magento_Framework(_Model(_ResourceModel)?)_(Email|Variable)#' => 'Magento_\3\1',
                 '#Magento_Framework(_Model(_ResourceModel)?)_Url_Rewrite#' => 'Magento_UrlRewrite\1_UrlRewrite',
                 "#([A-Za-z0-9]+_[A-Za-z0-9]+_)([A-Za-z0-9]+)_({$this->_reservedWordsRe})(?![A-Za-z0-9])#ix" => '\1\2_\3\2',
+                '#([^A-Za-z0-9_\\\\]|^)Zend_Db_#' => '\1Magento_Framework_DB_',
             ],
             'code' => [
                 'Mage_Core_Model_Locale::DEFAULT_LOCALE' => '\Magento\Framework\Locale\Resolver::DEFAULT_LOCALE',
@@ -2173,6 +2175,9 @@ EOT;
         foreach ($matches as $m) {
             $class = '\\' . ltrim($m[1], '\\');
             if (!empty($declared[$class])) {
+                continue;
+            }
+            if (preg_match($this->_skipConvertToDiRegex, $class)) {
                 continue;
             }
             $declared[$class] = 1;
