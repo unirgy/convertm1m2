@@ -96,6 +96,7 @@ class ConvertM1M2
                 'Mage_Core_Model_Config_' => 'Magento_Framework_App_Config_',
                 'Mage_Core_Model_Resource_Setup' => 'Magento_Framework_Module_Setup',
                 'Mage_Core_Model_Resource_Config_' => 'Magento_Config_Model_ResourceModel_Config_',
+                'Mage_Core_Model_Session_Abstract' => 'Magento_Framework_Session_SessionManager',
                 'Mage_Core_Model_Translate_String' => 'Magento_Translation_Model_StringUtils',
                 'Mage_Core_Block_Abstract' => 'Magento_Framework_View_Element_AbstractBlock',
                 'Mage_Core_Block_Template' => 'Magento_Framework_View_Element_Template',
@@ -146,7 +147,8 @@ class ConvertM1M2
                 'Zend_Json' => 'Zend_Json_Json',
                 'Zend_Log' => 'Zend_Log_Logger',
                 'Zend_Db_Adapter_Abstract' => 'Magento_Framework_DB_Adapter_AdapterInterface',
-                'Zend_Db' => 'Magento_Framework_DB',
+                'Zend_Db_Expr' => '\\Zend_Db_Expr',
+                'Zend_Db_' => 'Magento_Framework_DB_',
             ],
             'classes_regex' => [
                 '#_([A-Za-z0-9]+)_(Abstract|New|List)([^A-Za-z0-9_]|$)#' => '_\1_\2\1\3',
@@ -159,6 +161,7 @@ class ConvertM1M2
                 '#Magento_Backend_Block_Widget_Form([^A-Za-z0-9_]|$)#' => 'Magento_Backend_Block_Widget_Form_Generic\1',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)_#' => 'Magento_\1_Model_',
                 '#Magento_Usa_Model_Shipping_Carrier_(Fedex|Ups|Usps)#' => 'Magento_\1_Model_Carrier',
+                '#Magento_Shipping_Model_Rate_Result_(Method|Error)#' => 'Magento_Quote_Model_Quote_Address_RateResult_\1',
                 '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_Controller_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2\3\4_Abstract\4\5',
                 '#([^A-Za-z0-9_]|^)([A-Za-z0-9]+_[A-Za-z0-9]+_)([A-Za-z0-9_]+_)?([A-Za-z0-9]+)Controller([^A-Za-z0-9_]|$)#' => '\1\2Controller_\3\4_Abstract\4\5',
                 '#Magento_Framework(_Model(_ResourceModel)?_(Store|Website))#' => 'Magento_Store\1',
@@ -186,8 +189,6 @@ class ConvertM1M2
                 'Mage::getConfig()->getVarDir(' => self::OBJ_MGR . '(\'Magento\Framework\App\Filesystem\DirectoryList\')->getPath(\'var\') . (',
                 'Mage::getConfig()->createDirIfNotExists(' => self::OBJ_MGR . '(\'Magento\Framework\Filesystem\Directory\Write\')->create(',
                 'Mage::getConfig()->reinit()' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ReinitableConfigInterface\')->reinit()',
-                'Mage::getStoreConfig(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(',
-                'Mage::getStoreConfigFlag(' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(',
                 'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
                 'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
                 'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
@@ -234,6 +235,10 @@ class ConvertM1M2
                     . '|reinitStores|getDefaultStoreView|getGroups?|setCurrentStore)\(#' =>
                     self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1(',
                 '#([^A-Za-z0-9])DS([^A-Za-z0-9])#' => '\1DIRECTORY_SEPARATOR\2',
+                '#Mage::getStoreConfig\(([^,\)]+)#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
+                '#Mage::getStoreConfigFlag\(([^,\)]+)#' =>
+                    self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -1953,6 +1958,9 @@ EOT;
 
         // Convert any left underscored class names to backslashed. If class name is in string value, don't prefix
         $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9][a-z0-9]+_[A-Za-z0-9_]+_[A-Za-z0-9_])#', function($m) {
+            if ($m[1] === '\\') { // if the class is already backslash prefixed, skip
+                return $m[0];
+            }
             return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]);
         }, $contents);
 
