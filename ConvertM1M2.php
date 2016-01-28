@@ -71,6 +71,7 @@ class ConvertM1M2
 
     public function getReplaceMaps()
     {
+        $nl = "\n";
         return [
             'modules' => [
                 'Mage_Adminhtml' => 'Magento_Backend',
@@ -220,9 +221,9 @@ class ConvertM1M2
                 '#Mage::app\(\)->getConfig\(\)->getNode\([\'"]modules/([A-Za-z0-9]+_[A-Za-z0-9]+)/version[\'"]\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Module\ModuleListInterface\')->getOne(\'\1\')["setup_version"]',
                 '#Mage::app\(\)->getConfig\(\)->createDirIfNotExists\(([^)]+)\);#' =>
-                    'if (' . self::OBJ_MGR . '(\'Magento\Framework\Filesystem\DriverInterface\')->isExists(\1)) {' . "\n"
+                    'if (' . self::OBJ_MGR . '(\'Magento\Framework\Filesystem\DriverInterface\')->isExists(\1)) {' . $nl
                     . self::OBJ_MGR . '(\'Magento\Framework\Filesystem\DriverInterface\')->createDirectory(\1, 0775);'
-                    . "\n}",
+                    . $nl . '}',
                 '#(}\s*catch\s*\()(Exception\s+)#' => '\1\\\\\2',
                 '#Mage::app\(\)\s*->getLocale\(\)\s*->(getLocale|emulate|revert)(Code)?\(#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->\1(',
@@ -241,6 +242,7 @@ class ConvertM1M2
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
                 '#Mage::getStoreConfigFlag\(([^,\)]+)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
+                '#(<script.*?>)([\s\S]+?)(</script>)#' => '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\2' . $nl . '});' . $nl . '\3',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
