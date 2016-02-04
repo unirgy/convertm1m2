@@ -1661,7 +1661,7 @@ EOT;
                 if (!empty($this->_layouts[$area]['blocks'][$nodeName])) {
                     $className = $this->_layouts[$area]['blocks'][$nodeName];
                     if ($className === 'Mage_Core_Block_Text_List'
-                        || is_subclass_of($className, 'Mage_Core_Block_Text_List')
+                        || class_exists($className) && is_subclass_of($className, 'Mage_Core_Block_Text_List')
                         || $nodeName === 'content'
                     ) {
                         $targetChildXml = $targetXml->addChild('referenceContainer');
