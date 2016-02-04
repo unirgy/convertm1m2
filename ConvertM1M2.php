@@ -1561,7 +1561,7 @@ EOT;
 
     public function convertAllLayouts()
     {
-        $this->convertLayoutAreaTheme('adminhtml', 'adminhtml/base');
+        $this->convertLayoutAreaTheme('adminhtml', 'base/default');
         $this->convertLayoutAreaTheme('adminhtml', 'default/default');
         $this->convertLayoutAreaTheme('frontend', 'base/default');
         $this->convertLayoutAreaTheme('frontend', 'default/default');
@@ -1778,6 +1778,7 @@ EOT;
     public function convertAllTemplates()
     {
         $this->convertTemplatesAreaTheme('adminhtml', 'default/default');
+        $this->convertTemplatesAreaTheme('adminhtml', 'base/default');
         $this->convertTemplatesAreaTheme('frontend', 'default/default');
         $this->convertTemplatesAreaTheme('frontend', 'base/default');
         $this->convertTemplatesEmails();
