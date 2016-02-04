@@ -247,7 +247,7 @@ class ConvertM1M2
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
                 '#Mage::getStoreConfigFlag\(([^,\)]+)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
-                '#(<script.*?>(\s*//<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\]\]>\s*)?</script>)#' =>
+                '#(<script.*?>(\s*//\s*<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\s*\]\]>\s*)?</script>)#' =>
                     '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\3' . $nl . '});' . $nl . '\4',
             ],
             'acl_keys' => [
