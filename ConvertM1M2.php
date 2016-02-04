@@ -32,6 +32,11 @@ class ConvertM1M2
     protected $_classFileCache = [];
 
     protected $_aliases = [
+        'models' => [
+            'catalog_resource_eav_mysql4' => 'Mage_Catalog',
+            'customer_entity' => 'Mage_Customer',
+            'review_mysql4' => 'Mage_Review',
+        ],
         'blocks' => [
             'centinel' => 'Mage_Centinel',
         ]
@@ -1555,9 +1560,10 @@ EOT;
 
     public function convertAllLayouts()
     {
+        $this->convertLayoutAreaTheme('adminhtml', 'adminhtml/base');
         $this->convertLayoutAreaTheme('adminhtml', 'default/default');
-        $this->convertLayoutAreaTheme('frontend', 'default/default');
         $this->convertLayoutAreaTheme('frontend', 'base/default');
+        $this->convertLayoutAreaTheme('frontend', 'default/default');
     }
 
     public function convertLayoutAreaTheme($area, $theme)
