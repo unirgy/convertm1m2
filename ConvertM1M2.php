@@ -247,7 +247,8 @@ class ConvertM1M2
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
                 '#Mage::getStoreConfigFlag\(([^,\)]+)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
-                '#(<script.*?>)([\s\S]+?)(</script>)#' => '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\2' . $nl . '});' . $nl . '\3',
+                '#(<script.*?>(\s*//<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\]\]>\s*)?</script>)#' =>
+                    '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\3' . $nl . '});' . $nl . '\4',
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -1659,7 +1660,10 @@ EOT;
                 $nodeName = (string)$sourceXml['name'];
                 if (!empty($this->_layouts[$area]['blocks'][$nodeName])) {
                     $className = $this->_layouts[$area]['blocks'][$nodeName];
-                    if (is_subclass_of($className, 'Mage_Core_Block_Text_List') || $nodeName === 'content') {
+                    if ($className === 'Mage_Core_Block_Text_List'
+                        || is_subclass_of($className, 'Mage_Core_Block_Text_List')
+                        || $nodeName === 'content'
+                    ) {
                         $targetChildXml = $targetXml->addChild('referenceContainer');
                     } else {
                         $targetChildXml = $targetXml->addChild('reference');
