@@ -210,6 +210,8 @@ class ConvertM1M2
                 '$this->getLayout()' => self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
                 '$this->redirect(' => 'return ' . self::OBJ_MGR . '(\'Magento\Framework\Controller\Result\RedirectFactory\')->create()->setPath(',
                 '$this->forward(' => self::OBJ_MGR . '(\'Magento\Backend\Model\View\Result\ForwardFactory\')->create()->forward(',
+                '->getReadConnection(' => '->getConnection(',
+                '->getWriteConnection(' => '->getConnection(',
             ],
             'code_regex' => [
                 '#(Mage::helper\([\'"][A-Za-z0-9/_]+[\'"]\)|\$this)->__\(#' => '__(',
@@ -2498,6 +2500,49 @@ EOT;
     public function convertShortArraySyntax($contents)
     {
         $tokens = token_get_all($contents);
+        $arrayIdx = null;
+        $stack = [];
+        for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
+            if (!isset($tokens[$i])) {
+                break;
+            }
+            $t = $tokens[$i];
+            if (!$arrayIdx) { // `array` keyword not found yet
+                if (is_array($t) && $t[0] === T_ARRAY) { // current token is `array`
+                    $arrayIdx = $i; // it starts here
+                } elseif ($t === '(') { // unrelated opening parenthesis found
+                    array_unshift($stack, false); // add to stack that it's not array
+                } elseif ($t === ')') { // closing parenthesis found
+                    if ($stack[0]) { // is this closing array?
+                        $tokens[$i] = ']';
+                    }
+                    array_shift($stack); // remove the current flag from stack
+                }
+            } else { // we're right after `array` keyword
+                if ($t === '(') { // does opening parentheses follow?
+                    $tokens[$i] = '['; // replace current token with opening bracket
+                    $removeLength = $i - $arrayIdx; // calculate length to be removed from tokens
+                    array_splice($tokens, $arrayIdx, $removeLength); // remove `array` and anything that follows before parenthesis
+                    $i -= $removeLength; // adjust current position for removed tokens
+                    array_unshift($stack, true); // add a flag to stack that it's array context
+                    $arrayIdx = false; // reset context state
+                } elseif (!is_array($t) && $t[0] !== T_WHITESPACE) { // the `array` that we found earlier is not start of actual array
+                    $arrayIdx = false; // reset context state
+                }
+            }
+        }
+        $result = [];
+        for ($i = 0; $i < $size; $i++) {
+            if (isset($tokens[$i])) {
+                $result[] = is_array($tokens[$i]) ? $tokens[$i][1] : $tokens[$i];
+            }
+        }
+        return join('', $result);
+    }
+/*
+    public function convertShortArraySyntax1($contents)
+    {
+        $tokens = token_get_all($contents);
         for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
             if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
                 $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
@@ -2542,7 +2587,7 @@ EOT;
         }
         $start = $i + 1;
     }
-
+*/
     ///////////////////////////////////////////////////////////
 
     public function convertAllControllers()

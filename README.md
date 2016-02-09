@@ -26,12 +26,14 @@ developers to have more time for tasks that can not be automated, such as:
   * **Email Templates** (copying to correct folder only, no processing)
   * **i18n** (copying to correct folder only)
   * **Templates** (with some conversion - see below)
+    * Wrap embedded JS scripts in require.js boilerplate
   * **Classes** (with some conversion - see below)
   * **Controllers** (separate files per action)
   * **Observers** (separate files per observer callback)
   * **PHP Code conversions**
     * Class names to backslashed
     * Class declarations to use namespaces
+    * Convert to short array syntax
     * Basic class name conversion to new locations in M2
     * String translations to use only `__()`
     * Use constructor Dependency Injection
