@@ -2526,7 +2526,7 @@ EOT;
                     $i -= $removeLength; // adjust current position for removed tokens
                     array_unshift($stack, true); // add a flag to stack that it's array context
                     $arrayIdx = false; // reset context state
-                } elseif (!is_array($t) && $t[0] !== T_WHITESPACE) { // the `array` that we found earlier is not start of actual array
+                } elseif (!(is_array($t) && $t[0] === T_WHITESPACE)) { // the `array` that we found earlier is not start of actual array
                     $arrayIdx = false; // reset context state
                 }
             }
