@@ -2503,9 +2503,6 @@ EOT;
         $arrayIdx = null;
         $stack = [];
         for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
-            if (!isset($tokens[$i])) {
-                break;
-            }
             $t = $tokens[$i];
             if (!$arrayIdx) { // `array` keyword not found yet
                 if (is_array($t) && $t[0] === T_ARRAY) { // current token is `array`
@@ -2524,6 +2521,7 @@ EOT;
                     $removeLength = $i - $arrayIdx; // calculate length to be removed from tokens
                     array_splice($tokens, $arrayIdx, $removeLength); // remove `array` and anything that follows before parenthesis
                     $i -= $removeLength; // adjust current position for removed tokens
+                    $size -= $removeLength;
                     array_unshift($stack, true); // add a flag to stack that it's array context
                     $arrayIdx = false; // reset context state
                 } elseif (!(is_array($t) && $t[0] === T_WHITESPACE)) { // the `array` that we found earlier is not start of actual array
@@ -2628,6 +2626,8 @@ EOT;
         $contents = $this->convertCodeContents($contents);
         $contents = $this->convertCodeParseMethods($contents, 'controller');
         $contents = $this->convertControllerContext($contents);
+
+        $contents = preg_replace('#^\s*require(_once)?\s*(\(| ).+Controller\.php[\'"]\s*\)?\s*;\s*$m', '', $contents);
 
         $this->writeFile($targetFile, $contents);
 
