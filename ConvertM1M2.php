@@ -251,6 +251,7 @@ class ConvertM1M2
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
                 '#(<script.*?>(\s*//\s*<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\s*\]\]>\s*)?</script>)#' =>
                     '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\3' . $nl . '});' . $nl . '\4',
+                '#^interface\s+([\\\\A-Za-z0-9_]+)[\\\\_]([A-Za-z0-9]+)\s*\{#m' => "namespace \\1;\r\n\r\ninterface \\2\r\n{",
             ],
             'acl_keys' => [
                 'admin' => 'Magento_Backend::admin',
@@ -2627,7 +2628,7 @@ EOT;
         $contents = $this->convertCodeParseMethods($contents, 'controller');
         $contents = $this->convertControllerContext($contents);
 
-        $contents = preg_replace('#^\s*require(_once)?\s*(\(| ).+Controller\.php[\'"]\s*\)?\s*;\s*$m', '', $contents);
+        $contents = preg_replace('#^\s*require(_once)?\s*(\(| ).+Controller\.php[\'"]\s*\)?\s*;\s*$#m', '', $contents);
 
         $this->writeFile($targetFile, $contents);
 
