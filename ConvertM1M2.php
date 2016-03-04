@@ -736,14 +736,6 @@ class ConvertM1M2
                 'psr-4' => [
                     str_replace('_', '\\', $extName) . '\\' => '',
                 ],
-            ],
-            'extra' => [
-                'map' => [
-                    [
-                        '*',
-                        str_replace('_', '/', $extName)
-                    ]
-                ]
             ]
         ];
         $this->writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT), true);
