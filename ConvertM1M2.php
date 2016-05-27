@@ -254,6 +254,7 @@ class ConvertM1M2
                 '#^interface\s+([\\\\A-Za-z0-9_]+)[\\\\_]([A-Za-z0-9]+)\s*\{#m' => "namespace \\1;\r\n\r\ninterface \\2\r\n{",
             ],
             'acl_keys' => [
+                'all' => 'Magento_Backend::all',
                 'admin' => 'Magento_Backend::admin',
                 'admin/sales' => 'Magento_Sales::sales',
                 'admin/reports' => 'Magento_Reports::report',
