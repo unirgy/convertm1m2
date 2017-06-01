@@ -18,6 +18,10 @@ if (PHP_SAPI === 'cli') {
 ini_set('display_errors', 1);
 error_reporting(E_ALL | E_STRICT);
 
+if (!date_default_timezone_get()) {
+    date_default_timezone_set('UTC');
+}
+
 $time = microtime(true);
 include_once __DIR__ . '/SimpleDOM.php';
 include_once __DIR__ . '/ConvertM1M2.php';
