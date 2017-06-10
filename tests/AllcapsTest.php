@@ -17,19 +17,19 @@ class AllCaps extends ConvertM1M2TestCase
     {
         $object = new TestableConvertM1M2();
         $contents = $object->convertCodeContents('<' . '?' . 'php' . "\n" . 
-            'class Foo_Module_TestController{ public function indexAction(){}}');        
+            'class Foo_Module_TestController{ public function indexAction(){}}');
         $contents = $object->convertCodeParseMethods($contents, 'php');
-        $currentFile = $object->getCurrentFile();     
-        $this->assertTrue(count($currentFile['methods']));
+        $currentFile = $object->getCurrentFile();
+        $this->assertNotEmpty(count($currentFile['methods']));
     }
 
     public function testMethodParsingAllCaps()
     {
         $object = new TestableConvertM1M2();
         $contents = $object->convertCodeContents('<' . '?' . 'php' . "\n" . 
-            'class FOO_Module_TestController{ public function indexAction(){}}');        
+            'class FOO_Module_TestController{ public function indexAction(){}}');
         $contents = $object->convertCodeParseMethods($contents, 'php');
         $currentFile = $object->getCurrentFile();     
-        $this->assertTrue(count($currentFile['methods']));
+        $this->assertNotEmpty(count($currentFile['methods']));
     }    
 }

@@ -249,7 +249,7 @@ class ConvertM1M2
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->getValue(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
                 '#Mage::getStoreConfigFlag\(([^,\)]+)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\App\Config\ScopeConfigInterface\')->isSetFlag(\1, \Magento\Store\Model\ScopeInterface::SCOPE_STORE',
-                '#(<script.*?>(\s*//\s*<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\s*\]\]>\s*)?</script>)#' =>
+                '#(<' . 'script.*?>(\s*//\s*<!\[CDATA\[\s*)?)([\s\S]+?)((\s*//\s*\]\]>\s*)?</' . 'script>)#' =>
                     '\1' . $nl . 'require(["jquery", "prototype"], function(jQuery) {' . $nl . '\3' . $nl . '});' . $nl . '\4',
                 '#^interface\s+([\\\\A-Za-z0-9_]+)[\\\\_]([A-Za-z0-9]+)\s*\{#m' => "namespace \\1;\r\n\r\ninterface \\2\r\n{",
             ],
@@ -2047,7 +2047,7 @@ EOT;
 
         // Find start of the class
         $classStart = null;
-        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+(\s+(extends|implements)\s+|\s*$)#';
+        $classStartRe = '#^\s*((abstract|final)\s+)?class\s+[A-Za-z0-9_]+(\s+(extends|implements)\s+|\s*(\{|$))#';
         for ($i = 0; $i < $linesCnt; $i++) {
             if (preg_match($classStartRe, $lines[$i])) {
                 $classStart = $i;
