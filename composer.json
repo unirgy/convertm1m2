@@ -3,6 +3,7 @@
         "phpunit/phpunit": "4.8.*"
     },
     "scripts":{
-        "test":"bash vendor/bin/phpunit tests"
+        "test-windows":"bash vendor/bin/phpunit tests",
+        "test":"php vendor/bin/phpunit tests"
     }
 }
