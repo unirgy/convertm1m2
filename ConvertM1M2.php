@@ -805,6 +805,8 @@ EOT;
         $targetXml->addAttribute('name', $extName);
         if (!empty($xml1->modules->{$extName}->version)) {
             $targetXml->addAttribute('setup_version', (string)$xml1->modules->{$extName}->version);
+        } else {
+            $this->log("[WARN] Missing module version for {$extName}.");
         }
         if (!empty($xml2->modules->{$extName}->depends)) {
             $sequenceXml = $targetXml->addChild('sequence');
