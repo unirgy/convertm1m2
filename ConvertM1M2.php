@@ -1969,7 +1969,7 @@ EOT;
         $contents = preg_replace(array_keys($classRegexTr), array_values($classRegexTr), $contents);
 
         // Convert any left underscored class names to backslashed. If class name is in string value, don't prefix
-        $contents = preg_replace_callback('#(.)([A-Z]([A-Z0-9]|[A-Za-z0-9]+[a-z0-9]+)_[A-Za-z0-9_]+_[A-Z])#', function($m) {
+        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9]+[a-z0-9]+_[A-Za-z0-9_]+_[A-Z])#', function($m) {
             if ($m[1] === '\\') { // if the class is already backslash prefixed, skip
                 return $m[0];
             }
