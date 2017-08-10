@@ -1969,11 +1969,11 @@ EOT;
         $contents = preg_replace(array_keys($classRegexTr), array_values($classRegexTr), $contents);
 
         // Convert any left underscored class names to backslashed. If class name is in string value, don't prefix
-        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9]+[a-z0-9]+_[A-Za-z0-9_]+_[A-Z])#', function($m) {
+        $contents = preg_replace_callback('#(.)([A-Z][A-Za-z0-9]+_[A-Za-z0-9_]+[a-z0-9]+_[A-Za-z0-9_]+)([^A-Za-z0-9_])#', function($m) {
             if ($m[1] === '\\') { // if the class is already backslash prefixed, skip
                 return $m[0];
             }
-            return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]);
+            return $m[1] . ($m[1] !== "'" && $m[1] !== '"' ? '\\' : '') . str_replace('_', '\\', $m[2]) . $m[3];
         }, $contents);
 
         // add template prefix for files existing in module
