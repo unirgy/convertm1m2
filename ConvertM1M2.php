@@ -2205,7 +2205,7 @@ EOT;
                 $propertyLines[] = "{$pad}/**";
                 $propertyLines[] = "{$pad} * @var {$class}";
                 $propertyLines[] = "{$pad} */";
-                $propertyLines[] = "{$pad}protected \$_{$var};";
+                $propertyLines[] = "{$pad}protected \${$var};";
                 $propertyLines[] = "";
 
                 if (empty($optionalArgsStart)) {
@@ -2214,12 +2214,12 @@ EOT;
                     array_splice($constructArgs, $optionalArgsStart++, 0, ["{$class} \${$var}"]);
                 }
 
-                $constructLines[] = "{$pad}{$pad}\$this->_{$var} = \${$var};";
+                $constructLines[] = "{$pad}{$pad}\$this->{$var} = \${$var};";
             }
 
             //$constructParentArgs[] = $var;
 
-            $contents = str_replace($m[0], "\$this->_{$var}", $contents);
+            $contents = str_replace($m[0], "\$this->{$var}", $contents);
         }
 
         $nl = $this->_currentFile['nl'];
