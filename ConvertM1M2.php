@@ -236,14 +236,14 @@ class ConvertM1M2
                 '#Mage::app\(\)\s*->getLocale\(\)\s*->(getLocale|emulate|revert)(Code)?\(#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Locale\Resolver\')->\1(',
                 '#Mage::app\(\)\s*->getLocale\(\)\s*->(date|getDateFormat|getDateFormatWithLongYear|getTimeFormat'
-                    . '|getDateTimeFormat|storeTimeStamp)\(#' =>
+                . '|getDateTimeFormat|storeTimeStamp)\(#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Stdlib\DateTime\TimezoneInterface\')->\1(',
                 '#Mage::getBaseDir\(([\'"][a-z]+[\'"])\)#' =>
                     self::OBJ_MGR . '(\'Magento\Framework\Filesystem\')->getDirectoryWrite(\1)->getAbsolutePath()',
                 '#Mage::app\(\)->(isSingleStoreMode|getDefaultStoreView)\(\)#' =>
                     self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1()',
                 '#Mage::app\(\)->(setIsSingleStoreModeAllowed|hasSingleStore|isSingleStoreMode|getStores?|getWebsites?'
-                    . '|reinitStores|getDefaultStoreView|getGroups?|setCurrentStore)\(#' =>
+                . '|reinitStores|getDefaultStoreView|getGroups?|setCurrentStore)\(#' =>
                     self::OBJ_MGR . '(\'Magento\Store\Model\StoreManagerInterface\')->\1(',
                 '#([^A-Za-z0-9])DS([^A-Za-z0-9])#' => '\1DIRECTORY_SEPARATOR\2',
                 '#Mage::getStoreConfig\(([^,\)]+)#' =>
@@ -273,6 +273,10 @@ class ConvertM1M2
                 '#/([A-Za-z0-9]+)/(Abstract|New|List)(\.php)#' => '/\1/\2\1\3',
                 '#/([A-Za-z0-9]+)/(Interface)(\.php)#' => '/\1/\1\2\3',
                 "#/([A-Za-z0-9]+)/({$this->_reservedWordsRe})(?![A-Za-z0-9])#ix" => '/\1/\2\1',
+            ],
+            'vars' => [
+                'configScopeConfigInterface' => 'storeConfig',
+                'frameworkUrlInterface' => 'urlBuilder',
             ],
         ];
     }
@@ -724,7 +728,7 @@ class ConvertM1M2
             'name' => str_replace('_', '/', $extName),
             'description' => '',
             'require' => [
-                'php' => '~5.5.0|~5.6.0',
+                'php' => '~5.5.0|~5.6.0|~7.0.0|~7.1.0',
             ],
             'type' => 'magento2-module',
             'version' => $version,
@@ -748,8 +752,10 @@ class ConvertM1M2
         $regCode = <<<EOT
 <?php
 
-\Magento\Framework\Component\ComponentRegistrar::register(
-    \Magento\Framework\Component\ComponentRegistrar::MODULE,
+use Magento\Framework\Component\ComponentRegistrar;
+
+ComponentRegistrar::register(
+    ComponentRegistrar::MODULE,
     '{$this->_env['ext_name']}',
     __DIR__
 );
@@ -2202,6 +2208,9 @@ EOT;
             $classVars[$var] = 1;
             $var[0] = strtolower($var[0]);
 
+            $varTr = $this->_replace['vars'];
+            $var = str_replace(array_keys($varTr), array_values($varTr), $var);
+
             if (empty($parentClasses[$class])) {
                 $propertyLines[] = "{$pad}/**";
                 $propertyLines[] = "{$pad} * @var {$class}";
@@ -2534,55 +2543,55 @@ EOT;
         }
         return join('', $result);
     }
-/*
-    public function convertShortArraySyntax1($contents)
-    {
-        $tokens = token_get_all($contents);
-        for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
-            if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
-                $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
-            }
-        }
-        $result = [];
-        for ($i = 0; $i < $size; $i++) {
-            if (isset($tokens[$i])) {
-                $result[] = is_array($tokens[$i]) ? $tokens[$i][1] : $tokens[$i];
-            }
-        }
-        return join('', $result);
-    }
-
-    public function convertShortArraySyntaxRecursive(&$tokens, &$start, $size)
-    {
-        for ($i = $start + 1; $i < $size; $i++) {
-            if ($tokens[$i] === '(') {
-                break;
-            } elseif (!is_array($tokens[$i]) && $tokens[$i][0] !== T_WHITESPACE) {
-                return;
-            }
-        }
-        $tokens[$start] = '[';
-        for ($j = $start + 1; $j <= $i; $j++) {
-            unset($tokens[$j]);
-        }
-        $bracketLevel = 0;
-        for ($i = $i + 1; $i < $size; $i++) {
-            if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
-                $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
-            } elseif ($tokens[$i] === '(') {
-                $bracketLevel++;
-            } elseif ($tokens[$i] === ')') {
-                if ($bracketLevel) {
-                    $bracketLevel--;
-                } else {
-                    $tokens[$i] = ']';
-                    break;
+    /*
+        public function convertShortArraySyntax1($contents)
+        {
+            $tokens = token_get_all($contents);
+            for ($i = 0, $size = sizeof($tokens); $i < $size; $i++) {
+                if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
+                    $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
                 }
             }
+            $result = [];
+            for ($i = 0; $i < $size; $i++) {
+                if (isset($tokens[$i])) {
+                    $result[] = is_array($tokens[$i]) ? $tokens[$i][1] : $tokens[$i];
+                }
+            }
+            return join('', $result);
         }
-        $start = $i + 1;
-    }
-*/
+
+        public function convertShortArraySyntaxRecursive(&$tokens, &$start, $size)
+        {
+            for ($i = $start + 1; $i < $size; $i++) {
+                if ($tokens[$i] === '(') {
+                    break;
+                } elseif (!is_array($tokens[$i]) && $tokens[$i][0] !== T_WHITESPACE) {
+                    return;
+                }
+            }
+            $tokens[$start] = '[';
+            for ($j = $start + 1; $j <= $i; $j++) {
+                unset($tokens[$j]);
+            }
+            $bracketLevel = 0;
+            for ($i = $i + 1; $i < $size; $i++) {
+                if (is_array($tokens[$i]) && $tokens[$i][0] === T_ARRAY) {
+                    $this->convertShortArraySyntaxRecursive($tokens, $i, $size);
+                } elseif ($tokens[$i] === '(') {
+                    $bracketLevel++;
+                } elseif ($tokens[$i] === ')') {
+                    if ($bracketLevel) {
+                        $bracketLevel--;
+                    } else {
+                        $tokens[$i] = ']';
+                        break;
+                    }
+                }
+            }
+            $start = $i + 1;
+        }
+    */
     ///////////////////////////////////////////////////////////
 
     public function convertAllControllers()
