@@ -199,6 +199,7 @@ class ConvertM1M2
                 'Mage::getConfig()->reinit()' => self::OBJ_MGR . '(\'Magento\Framework\App\Config\ReinitableConfigInterface\')->reinit()',
                 'Mage::getDesign()' => self::OBJ_MGR . '(\'Magento\Framework\View\DesignInterface\')',
                 'Mage::helper(\'core/url\')->getCurrentUrl()' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getCurrentUrl()',
+                'Mage::getUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getUrl(',
                 'Mage::getBaseUrl(' => self::OBJ_MGR . '(\'Magento\Framework\UrlInterface\')->getBaseUrl(',
                 'Mage::getSingleton(\'admin/session\')->isAllowed(' => self::OBJ_MGR . '(\'Magento\Backend\Model\Auth\Session\')->isAllowed(',
                 'Mage::getSingleton(\'adminhtml/session\')->add' => self::OBJ_MGR . '(\'Magento\Framework\Message\ManagerInterface\')->add',
