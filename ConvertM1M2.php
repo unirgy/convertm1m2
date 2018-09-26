@@ -725,7 +725,7 @@ class ConvertM1M2
         $version = !empty($xml1->modules->{$extName}->version) ? (string)$xml1->modules->{$extName}->version : '0.0.1';
 
         $data = [
-            'name' => str_replace('_', '/', $extName),
+            'name' => strtolower(str_replace('_', '/', $extName)),
             'description' => '',
             'require' => [
                 'php' => '~5.5.0|~5.6.0|~7.0.0|~7.1.0',
@@ -744,7 +744,7 @@ class ConvertM1M2
                 ],
             ]
         ];
-        $this->writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT), true);
+        $this->writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), true);
     }
 
     public function convertGenerateRegistrationFile()
