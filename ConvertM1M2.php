@@ -74,6 +74,9 @@ class ConvertM1M2
 
     protected $_autoloadMode = 'm1';
 
+    /**
+     * @return array
+     */
     public function getReplaceMaps()
     {
         $nl = "\n";
@@ -275,12 +278,24 @@ class ConvertM1M2
                 "#/([A-Za-z0-9]+)/({$this->_reservedWordsRe})(?![A-Za-z0-9])#ix" => '/\1/\2\1',
             ],
             'vars' => [
-                'configScopeConfigInterface' => 'storeConfig',
+                'appCacheInterface' => 'cache',
+                'appRequestInterface' => 'request',
+                'cacheStateInterface' => 'cacheState',
+                'configScopeConfigInterface' => 'scopeConfig',
                 'frameworkUrlInterface' => 'urlBuilder',
+                'logLoggerInterface' => 'logger',
+                'modelStoreFactory' => 'storeFactory',
+                'modelStoreManagerInterface' => 'storeManager',
             ],
         ];
     }
 
+    /**
+     * ConvertM1M2 constructor.
+     * @param string $sourceDir
+     * @param string $mage1Dir
+     * @param string $mage2Dir
+     */
     public function __construct($sourceDir, $mage1Dir, $mage2Dir)
     {
         $this->_env['source_dir']     = str_replace('\\', '/', $sourceDir);
@@ -291,7 +306,7 @@ class ConvertM1M2
         if (!is_dir($this->_env['source_dir'])) {
             $this->log('[ERROR] Invalid modules code source directory: ' . $this->_env['source_dir']);
         }
-        if (!is_dir($this->_env['mage1_dir']) || !is_dir($this->_env['mage1_dir'] . '/app/code/core' )) {
+        if (!is_dir($this->_env['mage1_dir']) || !is_dir($this->_env['mage1_dir'] . '/app/code/core')) {
             $this->log('[ERROR] Invalid Magento 1.x directory: ' . $this->_env['mage1_dir']);
         }
         if (!is_dir($this->_env['mage2_dir']) || !file_exists($this->_env['mage2_dir'] . '/app/bootstrap.php')) {
@@ -303,6 +318,9 @@ class ConvertM1M2
         $this->_replace = $this->getReplaceMaps();
     }
 
+    /**
+     * @param string $class
+     */
     public function autoloadCallback($class)
     {
         if (!empty($this->_classFileCache[$class])) {
@@ -341,6 +359,10 @@ class ConvertM1M2
         }
     }
 
+    /**
+     * @param int $stage
+     * @return $this
+     */
     public function convertAllExtensions($stage)
     {
         if ($stage === 1) {
@@ -373,6 +395,11 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $extName
+     * @param string $rootDir
+     * @return $this
+     */
     public function convertExtensionStage1($extName, $rootDir)
     {
         $this->_autoloadMode = 'm1';
@@ -408,6 +435,11 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $msg
+     * @param bool $continue
+     * @return $this
+     */
     public function log($msg, $continue = false)
     {
         static $htmlColors = [
@@ -438,6 +470,10 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $path
+     * @return mixed|string
+     */
     public function expandSourcePath($path)
     {
         if ($path[0] !== '/' && $path[1] !== ':') {
@@ -448,6 +484,10 @@ class ConvertM1M2
         return $path;
     }
 
+    /**
+     * @param string $path
+     * @return string
+     */
     public function expandOutputPath($path)
     {
         if ($path[0] !== '/' && $path[1] !== ':') {
@@ -456,6 +496,11 @@ class ConvertM1M2
         return $path;
     }
 
+    /**
+     * @param string $filename
+     * @param bool $expand
+     * @return bool|mixed|SimpleDOM|string
+     */
     public function readFile($filename, $expand = false)
     {
         if ($this->_testMode) {
@@ -497,6 +542,12 @@ class ConvertM1M2
         return $content;
     }
 
+    /**
+     * @param string $filename
+     * @param string $contents
+     * @param bool $expand
+     * @return $this
+     */
     public function writeFile($filename, $contents, $expand = false)
     {
         if ($this->_testMode) {
@@ -524,6 +575,12 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $src
+     * @param string $dst
+     * @param bool $expand
+     * @return bool
+     */
     public function copyFile($src, $dst, $expand = false)
     {
         if ($this->_testMode) {
@@ -544,6 +601,12 @@ class ConvertM1M2
         return true;
     }
 
+    /**
+     * @param string $src
+     * @param string $dst
+     * @param bool $expand
+     * @return bool
+     */
     public function copyRecursive($src, $dst, $expand = false)
     {
         if ($this->_testMode) {
@@ -573,6 +636,11 @@ class ConvertM1M2
         return true;
     }
 
+    /**
+     * @param string $filename
+     * @param bool $expand
+     * @return $this|bool
+     */
     public function deleteFile($filename, $expand = false)
     {
         if ($this->_testMode) {
@@ -605,6 +673,11 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $dir
+     * @param bool $expand
+     * @return array
+     */
     public function findFilesRecursive($dir, $expand = false)
     {
         if ($this->_testMode) {
@@ -628,6 +701,9 @@ class ConvertM1M2
         return $files;
     }
 
+    /**
+     * @return $this
+     */
     public function collectCoreModulesConfigs()
     {
         $this->log("[INFO] COLLECTING M1 CONFIGURATION...")->log('');
@@ -647,10 +723,12 @@ class ConvertM1M2
                 }
             }
         }
-        //var_dump($this->_aliases);
         return $this;
     }
 
+    /**
+     * @return $this
+     */
     public function collectCoreModulesLayouts()
     {
         $this->log("[INFO] COLLECTING M1 LAYOUTS...")->log('');
@@ -669,6 +747,12 @@ class ConvertM1M2
         return $this;
     }
 
+    /**
+     * @param string $type
+     * @param $moduleClassKey
+     * @param bool $m2
+     * @return mixed|null|string|string[]
+     */
     public function getClassName($type, $moduleClassKey, $m2 = true)
     {
         $mk = explode('/', strtolower($moduleClassKey), 2);
@@ -728,7 +812,21 @@ class ConvertM1M2
             'name' => strtolower(str_replace('_', '/', $extName)),
             'description' => '',
             'require' => [
-                'php' => '~5.5.0|~5.6.0|~7.0.0|~7.1.0',
+                'php' => '~7.0.13|~7.1.0',
+                'magento/framework' => '>=100.0.0'
+            ],
+            'require-dev' => [
+                'phpunit/phpunit' => '^6.2',
+                'phpmd/phpmd' => '^2.6',
+                'squizlabs/php_codesniffer' => '^3.2',
+                'sebastian/phpcpd' => '^2.0',
+                'satooshi/php-coveralls' => '^1.0'
+            ],
+            'repositories' => [
+                [
+                    'type' => 'composer',
+                    'url' => 'https://repo.magento.com/'
+                ]
             ],
             'type' => 'magento2-module',
             'version' => $version,
@@ -747,6 +845,9 @@ class ConvertM1M2
         $this->writeFile('composer.json', json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), true);
     }
 
+    /**
+     * @return void
+     */
     public function convertGenerateRegistrationFile()
     {
         $regCode = <<<EOT
@@ -882,6 +983,11 @@ EOT;
         }
     }
 
+    /**
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     * @param string $path
+     */
     public function convertConfigAclRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $path = '')
     {
         foreach ($sourceXml->children() as $key => $sourceNode) {
@@ -930,7 +1036,6 @@ EOT;
         $xml = $this->readFile("@EXT/etc/config.xml", true);
 
         if (!empty($xml->global->resources)) {
-
             $resultXml = $this->createConfigXml('urn:magento:framework:App/etc/resources.xsd');
 
             foreach ($xml->global->resources->children() as $resKey => $resNode) {
@@ -1008,7 +1113,6 @@ EOT;
 
     public function convertConfigAdminhtmlDI()
     {
-
     }
 
     public function convertConfigEvents()
@@ -1135,6 +1239,11 @@ EOT;
         }
     }
 
+    /**
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     * @param null|string $parent
+     */
     public function convertConfigMenuRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml, $parent = null)
     {
         foreach ($sourceXml->children() as $key => $srcNode) {
@@ -1219,6 +1328,12 @@ EOT;
         }
     }
 
+    /**
+     * @param string $type
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     * @return SimpleXMLElement
+     */
     public function convertConfigSystemNode($type, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         static $childNodes = [
@@ -1539,6 +1654,10 @@ EOT;
         }
     }
 
+    /**
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     */
     public function convertConfigWidgetDataRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         /**
@@ -1572,6 +1691,10 @@ EOT;
         $this->convertLayoutAreaTheme('frontend', 'default/default');
     }
 
+    /**
+     * @param string $area
+     * @param string $theme
+     */
     public function convertLayoutAreaTheme($area, $theme)
     {
         $dir = "{$this->_env['ext_root_dir']}/app/design/{$area}/{$theme}/layout";
@@ -1582,6 +1705,11 @@ EOT;
         }
     }
 
+    /**
+     * @param string $area
+     * @param string $file
+     * @param string $outputDir
+     */
     public function convertLayoutFile($area, $file, $outputDir)
     {
         $xml = $this->readFile($file);
@@ -1635,6 +1763,10 @@ EOT;
         }
     }
 
+    /**
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     */
     public function convertLayoutHeadNode(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         foreach ($sourceXml->children() as $child) {
@@ -1657,6 +1789,11 @@ EOT;
         }
     }
 
+    /**
+     * @param string $area
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     */
     public function convertLayoutRecursive($area, SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         $tagName = $sourceXml->getName();
@@ -1736,6 +1873,10 @@ EOT;
         }
     }
 
+    /**
+     * @param SimpleXMLElement $sourceXml
+     * @param SimpleXMLElement $targetXml
+     */
     public function convertLayoutArgumentRecursive(SimpleXMLElement $sourceXml, SimpleXMLElement $targetXml)
     {
         $targetXml->addAttribute('xsi:type', 'array', self::XSI);
@@ -1752,6 +1893,10 @@ EOT;
         }
     }
 
+    /**
+     * @param string $value
+     * @return mixed|null|string|string[]
+     */
     public function getOpportunisticArgValue($value)
     {
         $value = (string)$value;
@@ -1789,6 +1934,10 @@ EOT;
         $this->convertTemplatesEmails();
     }
 
+    /**
+     * @param string $area
+     * @param string $theme
+     */
     public function convertTemplatesAreaTheme($area, $theme)
     {
         $dir = "{$this->_env['ext_root_dir']}/app/design/{$area}/{$theme}/template";
@@ -1874,6 +2023,10 @@ EOT;
         }
     }
 
+    /**
+     * @param string $folder
+     * @param null|string $callback
+     */
     public function convertPhpClasses($folder, $callback = null)
     {
         $dir = $this->expandSourcePath("@EXT/{$folder}");
@@ -1896,6 +2049,11 @@ EOT;
         }
     }
 
+    /**
+     * @param string $contents
+     * @param string $mode
+     * @return mixed|null|string|string[]
+     */
     public function convertCodeContents($contents, $mode = 'php')
     {
         $this->_currentFile = [
@@ -1919,8 +2077,11 @@ EOT;
             $contents = $this->convertCodeContentsPhpMode($contents);
         }
         if ($mode === 'phtml') {
-            $contents = str_replace(self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
-                '$block->getLayout()', $contents);
+            $contents = str_replace(
+                self::OBJ_MGR . '(\'Magento\Framework\View\LayoutFactory\')->create()',
+                '$block->getLayout()',
+                $contents
+            );
         }
         $contents = $this->convertShortArraySyntax($contents);
 
@@ -1990,7 +2151,7 @@ EOT;
             $file = glob($pattern);
             if ($file) {
                 return "{$m[1]}{$this->_env['ext_name']}::{$m[2]}{$m[3]}";
-            } else{
+            } else {
                 return $m[0];
             }
         }, $contents);
@@ -2008,6 +2169,10 @@ EOT;
         return $contents;
     }
 
+    /**
+     * @param string $contents
+     * @return null|string|string[]
+     */
     public function convertCodeContentsPhpMode($contents)
     {
         // Replace $this->init() in models and resources with class names and table names
@@ -2048,6 +2213,12 @@ EOT;
         return $contents;
     }
 
+    /**
+     * @param string $contents
+     * @param bool $fileType
+     * @param bool $returnResult
+     * @return array|null|string|string[]
+     */
     public function convertCodeParseMethods($contents, $fileType = false, $returnResult = false)
     {
         $nl = $this->_currentFile['nl'];
@@ -2172,6 +2343,10 @@ EOT;
         return $contents;
     }
 
+    /**
+     * @param string $contents
+     * @return mixed|null|string|string[]
+     */
     public function convertCodeObjectManagerToDI($contents)
     {
         $objMgrRe = preg_quote(self::OBJ_MGR, '#');
@@ -2256,6 +2431,10 @@ EOT;
         return $contents;
     }
 
+    /**
+     * @param string $contents
+     * @return array
+     */
     public function convertDIGetParentConstructArgs($contents)
     {
         static $cache = [];
@@ -2323,6 +2502,11 @@ EOT;
         return $result;
     }
 
+    /**
+     * @param string $contents
+     * @param bool $first
+     * @return array|bool|mixed
+     */
     public function convertFindParentConstruct($contents, $first = true)
     {
         static $cache = [];
@@ -2360,7 +2544,6 @@ EOT;
                 }
             }
             if ($autoloaded) {
-
                 try {
                     $refl = new ReflectionClass($parentClass);
                 } catch (Exception $e) {
@@ -2438,6 +2621,10 @@ EOT;
         return $fullClass;
     }
 
+    /**
+     * @param string $contents
+     * @return mixed
+     */
     public function convertNamespaceUse($contents)
     {
         #return $contents;#
@@ -2503,6 +2690,10 @@ EOT;
         return $contents;
     }
 
+    /**
+     * @param string $contents
+     * @return string
+     */
     public function convertShortArraySyntax($contents)
     {
         $tokens = token_get_all($contents);
@@ -2594,6 +2785,9 @@ EOT;
     */
     ///////////////////////////////////////////////////////////
 
+    /**
+     * @return void
+     */
     public function convertAllControllers()
     {
         $dir = $this->expandSourcePath('@EXT/controllers');
@@ -2604,10 +2798,18 @@ EOT;
         }
     }
 
+    /**
+     * @param string $file
+     * @param string $sourceDir
+     * @param string $targetDir
+     */
     public function convertController($file, $sourceDir, $targetDir)
     {
-        $targetFile = preg_replace(['#Controller\.php$#', '#/[^/]+admin/#'], ['.php', '/Adminhtml/'],
-            "{$targetDir}/{$file}");
+        $targetFile = preg_replace(
+            ['#Controller\.php$#', '#/[^/]+admin/#'],
+            ['.php', '/Adminhtml/'],
+            "{$targetDir}/{$file}"
+        );
 
         $fileClass = preg_replace(['#/#', '#\.php$#'], ['_', ''], $file);
         $origClass = "{$this->_env['ext_name']}_{$fileClass}";
@@ -2662,6 +2864,10 @@ EOT;
         }
     }
 
+    /**
+     * @param string $contents
+     * @return string
+     */
     public function convertControllerContext($contents)
     {
         $map = [
@@ -2687,6 +2893,10 @@ EOT;
         }
     }
 
+    /**
+     * @param string $sourceFile
+     * @param string $targetDir
+     */
     public function convertObserver($sourceFile, $targetDir)
     {
         $contents = $this->readFile($sourceFile);
@@ -2760,6 +2970,9 @@ EOT;
 
     ///////////////////////////////////////////////////////////
 
+    /**
+     * @param string $extName
+     */
     public function convertExtensionStage2($extName)
     {
         $this->_autoloadMode = 'm2';
@@ -2795,18 +3008,31 @@ EOT;
 
     protected $_testOutputFiles = [];
 
+    /**
+     * @param bool $testMode
+     * @return $this
+     */
     public function setTestMode($testMode = true)
     {
         $this->_testMode = $testMode;
         return $this;
     }
 
+    /**
+     * @param string $contents
+     * @param null|string $filename
+     * @return $this
+     */
     public function addTestInputFile($contents, $filename = null)
     {
         $this->_testInputFiles[] = ['contents' => $contents, 'filename' => $filename];
         return $this;
     }
 
+    /**
+     * @param null|string $filename
+     * @return bool|null
+     */
     public function getTestOutputFile($filename = null)
     {
         if (empty($this->_testOutputFiles)) {
